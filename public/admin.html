@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pausenaufsicht Planer - Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .admin-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .admin-section-header {
+            background: #1976d2;
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .admin-section-content {
+            padding: 1rem;
+        }
+        
+        .export-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-field label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-field input,
+        .form-field select {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #1976d2;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .teacher-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .teacher-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .teacher-item:last-child {
+            border-bottom: none;
+        }
+        
+        .teacher-info {
+            flex: 1;
+        }
+        
+        .teacher-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .teacher-full-name {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .assignment-count {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: #1976d2;
+            text-decoration: none;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .back-link::before {
+            content: '←';
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2>Admin-Anmeldung</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password">Passwort:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <input type="hidden" id="isAdmin" value="true">
+                <button type="submit">Anmelden</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="hidden">
+        <div class="admin-container">
+            <a href="/" class="back-link">Zurück zur Hauptansicht</a>
+            
+            <header style="background: none; padding: 0; box-shadow: none; color: #333; margin-bottom: 2rem;">
+                <h1>Admin-Panel - Pausenaufsicht Planer</h1>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                    <span id="userInfo">Admin-Modus</span>
+                    <button id="logoutBtn" style="background: #f44336; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                        Abmelden
+                    </button>
+                </div>
+            </header>
+
+            <!-- Statistics Section -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    Statistiken
+                </div>
+                <div class="admin-section-content">
+                    <div class="stats-grid" id="statsGrid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalTeachers">-</div>
+                            <div class="stat-label">Lehrkräfte</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalAreas">-</div>
+                            <div class="stat-label">Aufsichtsbereiche</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalAssignments">-</div>
+                            <div class="stat-label">Zuweisungen (30 Tage)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="emptySlots">-</div>
+                            <div class="stat-label">Offene Aufsichten (30 Tage)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Section -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    CSV-Export
+                </div>
+                <div class="admin-section-content">
+                    <button id="exportBtn" class="btn-primary">CSV herunterladen (8 Wochen)</button>
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        Exportiert alle Aufsichtszuweisungen für die nächsten 8 Wochen als CSV-Datei.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Teacher Overview Section -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    Lehrkräfte-Übersicht (8 Wochen)
+                </div>
+                <div class="admin-section-content">
+                    <div id="teacherList" class="teacher-list">
+                        <div style="padding: 2rem; text-align: center; color: #666;">
+                            Lade Lehrkräfte...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule Editor Section -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    Aufsichtsplan bearbeiten
+                </div>
+                <div class="admin-section-content">
+                    <p style="margin-bottom: 1rem; color: #666;">
+                        Als Admin können Sie alle Aufsichten bearbeiten. Plausibilitätsprüfungen sind aktiv, aber bereits vergebene Aufsichten können ohne Rückfrage geändert werden.
+                    </p>
+                    <button type="button" id="openScheduleEditor" class="btn-primary">Aufsichtsplan öffnen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessages"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,883 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Utility classes */
+.hidden {
+    display: none !important;
+}
+
+.loading {
+    text-align: center;
+    padding: 2rem;
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.error-message {
+    color: #d32f2f;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.success-message {
+    color: #388e3c;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+/* Header */
+header {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    color: white;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+.header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.location-tabs {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.location-tab {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.location-tab:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.location-tab.active {
+    background: white;
+    color: #1976d2;
+    border-color: white;
+}
+
+.location-tab.active[data-location="Eckernförde"] {
+    color: #d32f2f;
+}
+
+.date-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.date-controls label {
+    font-weight: 500;
+}
+
+.date-controls input {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.date-controls button {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.date-controls button:hover {
+    background: #45a049;
+}
+
+.user-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#userInfo {
+    font-weight: 500;
+}
+
+#logoutBtn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+#logoutBtn:hover {
+    background: #d32f2f;
+}
+
+/* Main content */
+main {
+    padding: 2rem;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Schedule Grid */
+#scheduleGrid {
+    display: grid;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.schedule-day {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.day-header {
+    background: #e3f2fd;
+    padding: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.day-header h3 {
+    color: #1976d2;
+    font-size: 1.2rem;
+}
+
+.day-content {
+    padding: 1rem;
+}
+
+.area-section {
+    margin-bottom: 2rem;
+}
+
+.area-section:last-child {
+    margin-bottom: 0;
+}
+
+.area-header {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    border-left: 4px solid #1976d2;
+    margin-bottom: 1rem;
+}
+
+.area-header h4 {
+    color: #1976d2;
+    font-size: 1.1rem;
+}
+
+/* Eckernförde location styling (red theme) */
+.area-header[data-location="Eckernförde"] {
+    border-left-color: #d32f2f;
+}
+
+.area-header[data-location="Eckernförde"] h4 {
+    color: #d32f2f;
+}
+
+.day-header[data-location="Eckernförde"] {
+    background: #ffebee;
+}
+
+.day-header[data-location="Eckernförde"] h3 {
+    color: #d32f2f;
+}
+
+.time-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.time-slot {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.time-slot-header {
+    background: #f5f5f5;
+    padding: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+}
+
+.supervision-slots {
+    display: flex;
+    flex-direction: column;
+}
+
+.supervision-slot {
+    padding: 0.5rem;
+    min-height: 40px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.supervision-slot:last-child {
+    border-bottom: none;
+}
+
+.supervision-slot.empty {
+    background-color: #ffebee;
+    color: #666;
+    border: 2px dashed #f44336;
+}
+
+.supervision-slot.empty:hover {
+    background-color: #ffcdd2;
+    border-color: #d32f2f;
+}
+
+.supervision-slot.filled {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 2px solid #4caf50;
+    font-weight: 500;
+}
+
+.supervision-slot.filled:hover {
+    background-color: #c8e6c9;
+    border-color: #388e3c;
+}
+
+.supervision-slot.updating {
+    background-color: #fff3e0;
+    border-color: #ff9800;
+    opacity: 0.7;
+}
+
+/* Modals */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2,
+.modal-header h3 {
+    color: #1976d2;
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+    background-color: #f5f5f5;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="password"]:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+/* Assignment Info */
+.assignment-info {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.assignment-info p {
+    margin-bottom: 0.5rem;
+}
+
+.assignment-info p:last-child {
+    margin-bottom: 0;
+}
+
+/* Teacher Search */
+.teacher-search {
+    margin-bottom: 1.5rem;
+}
+
+.teacher-search input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.teacher-results {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    background: white;
+}
+
+.teacher-result {
+    padding: 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+
+.teacher-result:last-child {
+    border-bottom: none;
+}
+
+.teacher-result:hover {
+    background-color: #f5f5f5;
+}
+
+.teacher-result.selected {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.teacher-name {
+    font-weight: 500;
+}
+
+.teacher-full-name {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+/* Buttons */
+button {
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: #1976d2;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #1565c0;
+}
+
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #d32f2f;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+/* Status Messages */
+#statusMessages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    max-width: 400px;
+}
+
+.status-message {
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid;
+    animation: slideIn 0.3s ease-out;
+}
+
+.status-message.success {
+    border-left-color: #4caf50;
+    background-color: #f1f8e9;
+}
+
+.status-message.error {
+    border-left-color: #f44336;
+    background-color: #ffebee;
+}
+
+.status-message.info {
+    border-left-color: #2196f3;
+    background-color: #e3f2fd;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Template View Styles */
+.area-template-view {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.area-template-view .area-header {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-left: 4px solid #1976d2;
+    margin-bottom: 0;
+}
+
+.area-template-view .area-header[data-location="Eckernförde"] {
+    border-left-color: #d32f2f;
+}
+
+.area-template-view .area-header h3 {
+    color: #1976d2;
+    font-size: 1.3rem;
+    margin: 0 0 0.5rem 0;
+}
+
+.area-template-view .area-header[data-location="Eckernförde"] h3 {
+    color: #d32f2f;
+}
+
+.template-note {
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+    margin: 0;
+}
+
+.template-container {
+    padding: 1rem;
+}
+
+.template-grid {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.template-grid-header {
+    display: grid;
+    grid-template-columns: 140px repeat(auto-fit, minmax(150px, 1fr));
+    background: #f8f9fa;
+    border-bottom: 2px solid #ddd;
+}
+
+.template-day-row {
+    display: grid;
+    grid-template-columns: 140px repeat(auto-fit, minmax(150px, 1fr));
+    border-bottom: 1px solid #eee;
+}
+
+.template-day-row:last-child {
+    border-bottom: none;
+}
+
+.template-day-row .day-cell {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.day-short {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 0.25rem;
+}
+
+/* Week View Styles (for legacy support) */
+.area-week-view {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.area-week-view .area-header {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-left: 4px solid #1976d2;
+    margin-bottom: 0;
+}
+
+.area-week-view .area-header[data-location="Eckernförde"] {
+    border-left-color: #d32f2f;
+}
+
+.area-week-view .area-header h3 {
+    color: #1976d2;
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.area-week-view .area-header[data-location="Eckernförde"] h3 {
+    color: #d32f2f;
+}
+
+.weeks-container {
+    padding: 1rem;
+}
+
+.week-section {
+    margin-bottom: 2rem;
+}
+
+.week-section:last-child {
+    margin-bottom: 0;
+}
+
+.week-header {
+    background: #f5f5f5;
+    padding: 0.75rem 1rem;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.week-header h4 {
+    color: #666;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.week-grid {
+    border: 1px solid #ddd;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+}
+
+.week-grid-header {
+    display: grid;
+    grid-template-columns: 120px repeat(auto-fit, minmax(150px, 1fr));
+    background: #f8f9fa;
+    border-bottom: 2px solid #ddd;
+}
+
+.day-column-header,
+.time-column-header {
+    padding: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    border-right: 1px solid #ddd;
+    color: #333;
+}
+
+.day-column-header {
+    background: #e9ecef;
+}
+
+.time-column-header:last-child {
+    border-right: none;
+}
+
+.week-day-row {
+    display: grid;
+    grid-template-columns: 120px repeat(auto-fit, minmax(150px, 1fr));
+    border-bottom: 1px solid #eee;
+}
+
+.week-day-row:last-child {
+    border-bottom: none;
+}
+
+.day-cell {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.day-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.day-date {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.time-cell {
+    padding: 0.5rem;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 60px;
+}
+
+.time-cell:last-child {
+    border-right: none;
+}
+
+.time-cell .supervision-slot {
+    margin: 0;
+    min-height: auto;
+    padding: 0.4rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .week-grid-header,
+    .week-day-row {
+        grid-template-columns: 100px repeat(auto-fit, minmax(120px, 1fr));
+    }
+    
+    .day-cell {
+        padding: 0.5rem;
+    }
+    
+    .time-cell {
+        padding: 0.4rem;
+        min-height: 50px;
+    }
+}
+
+@media (max-width: 768px) {
+    header {
+        padding: 1rem;
+    }
+    
+    .header-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .date-controls {
+        justify-content: center;
+    }
+    
+    .user-controls {
+        justify-content: center;
+    }
+    
+    main {
+        padding: 1rem;
+    }
+    
+    .week-grid-header,
+    .week-day-row {
+        grid-template-columns: 80px repeat(auto-fit, minmax(100px, 1fr));
+    }
+    
+    .day-cell {
+        padding: 0.4rem;
+    }
+    
+    .day-name {
+        font-size: 0.8rem;
+    }
+    
+    .day-date {
+        font-size: 0.7rem;
+    }
+    
+    .time-cell {
+        padding: 0.3rem;
+        min-height: 45px;
+    }
+    
+    .time-cell .supervision-slot {
+        padding: 0.3rem;
+        font-size: 0.8rem;
+    }
+    
+    .time-slots {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 1rem;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .modal-actions button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .date-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .date-controls input,
+    .date-controls button {
+        width: 100%;
+    }
+    
+    .week-grid-header,
+    .week-day-row {
+        grid-template-columns: 70px repeat(auto-fit, minmax(80px, 1fr));
+    }
+    
+    .day-column-header,
+    .time-column-header {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
+    
+    .time-column-header {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+    }
+}

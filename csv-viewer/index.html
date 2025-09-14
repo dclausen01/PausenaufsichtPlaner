@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pausenaufsicht CSV-Viewer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+    <!-- Font Awesome für Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-table"></i> Pausenaufsicht CSV-Viewer</h1>
+            <p class="subtitle">Übersichtliche Darstellung der exportierten Aufsichtspläne</p>
+        </header>
+
+        <!-- Upload Area -->
+        <div id="uploadArea" class="upload-area">
+            <div class="upload-content">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h2>CSV-Datei hochladen</h2>
+                <p>Ziehen Sie eine CSV-Datei hierher oder klicken Sie zum Auswählen</p>
+                <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                <button id="selectFileBtn" class="btn btn-primary">
+                    <i class="fas fa-folder-open"></i> Datei auswählen
+                </button>
+                <button id="loadDemoBtn" class="btn btn-secondary" style="margin-left: 1rem;">
+                    <i class="fas fa-play"></i> Demo-Daten laden
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content (initially hidden) -->
+        <div id="mainContent" class="main-content hidden">
+            <!-- File Info -->
+            <div class="file-info">
+                <div class="file-details">
+                    <h3 id="fileName">Keine Datei geladen</h3>
+                    <p id="fileStats">0 Einträge</p>
+                </div>
+                <div class="file-actions">
+                    <button id="newFileBtn" class="btn btn-secondary">
+                        <i class="fas fa-plus"></i> Neue Datei
+                    </button>
+                </div>
+            </div>
+
+            <!-- View Tabs -->
+            <div class="tabs">
+                <button class="tab-button active" data-tab="table">
+                    <i class="fas fa-table"></i> Tabellenansicht
+                </button>
+                <button class="tab-button" data-tab="weekly">
+                    <i class="fas fa-calendar-week"></i> Wochenansicht
+                </button>
+                <button class="tab-button" data-tab="teachers">
+                    <i class="fas fa-users"></i> Lehrkräfte
+                </button>
+                <button class="tab-button" data-tab="stats">
+                    <i class="fas fa-chart-bar"></i> Statistiken
+                </button>
+            </div>
+
+            <!-- Table View -->
+            <div id="tableView" class="tab-content active">
+                <div class="table-controls">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="dateFilter">Zeitraum:</label>
+                            <select id="dateFilter">
+                                <option value="">Alle Daten</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="areaFilter">Bereich:</label>
+                            <select id="areaFilter">
+                                <option value="">Alle Bereiche</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="teacherFilter">Lehrkraft:</label>
+                            <select id="teacherFilter">
+                                <option value="">Alle Lehrkräfte</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="timeSlotFilter">Zeitslot:</label>
+                            <select id="timeSlotFilter">
+                                <option value="">Alle Zeitslots</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-actions">
+                        <button id="clearFiltersBtn" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Filter zurücksetzen
+                        </button>
+                        <button id="exportFilteredBtn" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Gefilterte Daten exportieren
+                        </button>
+                        <button id="printBtn" class="btn btn-secondary">
+                            <i class="fas fa-print"></i> Drucken
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="dataTable" class="display" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Wochentag</th>
+                                <th>Zeitslot</th>
+                                <th>Bereich</th>
+                                <th>Lehrkraft</th>
+                                <th>Aufsicht Nr.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Weekly View -->
+            <div id="weeklyView" class="tab-content">
+                <div class="weekly-controls">
+                    <button id="prevWeekBtn" class="btn btn-secondary">
+                        <i class="fas fa-chevron-left"></i> Vorherige Woche
+                    </button>
+                    <h3 id="currentWeekTitle">Woche vom ...</h3>
+                    <button id="nextWeekBtn" class="btn btn-secondary">
+                        <i class="fas fa-chevron-right"></i> Nächste Woche
+                    </button>
+                </div>
+                <div id="weeklyGrid" class="weekly-grid">
+                    <!-- Weekly grid will be generated dynamically -->
+                </div>
+            </div>
+
+            <!-- Teachers View -->
+            <div id="teachersView" class="tab-content">
+                <div class="teachers-summary">
+                    <h3>Aufsichtsverteilung nach Lehrkräften</h3>
+                    <div id="teachersList" class="teachers-list">
+                        <!-- Teachers list will be generated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics View -->
+            <div id="statsView" class="tab-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalDays">0</div>
+                            <div class="stat-label">Tage</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalSlots">0</div>
+                            <div class="stat-label">Zeitslots</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalAreas">0</div>
+                            <div class="stat-label">Bereiche</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalTeachers">0</div>
+                            <div class="stat-label">Lehrkräfte</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalAssignments">0</div>
+                            <div class="stat-label">Zuweisungen</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="emptySlots">0</div>
+                            <div class="stat-label">Offene Aufsichten</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="charts-section">
+                    <div class="chart-container">
+                        <h4>Aufsichten pro Wochentag</h4>
+                        <canvas id="weekdayChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Aufsichten pro Zeitslot</h4>
+                        <canvas id="timeslotChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading-indicator hidden">
+            <div class="spinner"></div>
+            <p>Verarbeite CSV-Datei...</p>
+        </div>
+
+        <!-- Error Messages -->
+        <div id="errorContainer" class="error-container hidden">
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="errorText">Ein Fehler ist aufgetreten</span>
+                <button id="closeErrorBtn" class="close-btn">&times;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/locale/de.min.js"></script>
+    
+    <script src="js/csv-parser.js"></script>
+    <script src="js/table-manager.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

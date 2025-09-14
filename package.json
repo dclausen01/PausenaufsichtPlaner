@@ -1,0 +1,26 @@
+{
+  "name": "pausenaufsicht-planer",
+  "version": "1.0.0",
+  "description": "School break supervision planning system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "csv-parser": "^3.2.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.2",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7"
+  },
+  "keywords": [
+    "school",
+    "supervision",
+    "planning"
+  ],
+  "author": "",
+  "license": "MIT"
+}

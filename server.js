@@ -1,0 +1,412 @@
+const express = require('express');
+const session = require('express-session');
+const http = require('http');
+const socketIo = require('socket.io');
+const path = require('path');
+const crypto = require('crypto');
+
+// Import our modules
+const database = require('./config/database');
+const Teacher = require('./models/Teacher');
+const Assignment = require('./models/Assignment');
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+
+const PORT = process.env.PORT || 3000;
+const PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!').digest('hex');
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Session configuration
+app.use(session({
+    secret: 'pausenaufsicht-session-secret-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        secure: false, // Set to true in production with HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+    if (req.session.authenticated) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Authentication required' });
+    }
+};
+
+const requireAdminAuth = (req, res, next) => {
+    if (req.session.authenticated && req.session.isAdmin) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Admin access required' });
+    }
+};
+
+// Routes
+
+// Authentication
+app.post('/api/login', async (req, res) => {
+    try {
+        const { password, isAdmin } = req.body;
+        
+        const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+        const isValid = passwordHash === PASSWORD_HASH;
+        
+        if (isValid) {
+            req.session.authenticated = true;
+            req.session.isAdmin = isAdmin || false;
+            res.json({ 
+                success: true, 
+                isAdmin: req.session.isAdmin,
+                message: 'Login successful' 
+            });
+        } else {
+            res.status(401).json({ error: 'Invalid password' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            res.status(500).json({ error: 'Logout failed' });
+        } else {
+            res.json({ success: true, message: 'Logged out successfully' });
+        }
+    });
+});
+
+app.get('/api/auth-status', (req, res) => {
+    res.json({ 
+        authenticated: !!req.session.authenticated,
+        isAdmin: !!req.session.isAdmin
+    });
+});
+
+// Teachers API
+app.get('/api/teachers', requireAuth, async (req, res) => {
+    try {
+        const teachers = await Teacher.getAll();
+        res.json(teachers);
+    } catch (error) {
+        console.error('Error getting teachers:', error);
+        res.status(500).json({ error: 'Failed to get teachers' });
+    }
+});
+
+app.get('/api/teachers/search', requireAuth, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) {
+            return res.json([]);
+        }
+        
+        const teachers = await Teacher.searchByName(q);
+        res.json(teachers);
+    } catch (error) {
+        console.error('Error searching teachers:', error);
+        res.status(500).json({ error: 'Failed to search teachers' });
+    }
+});
+
+// Areas and Time Slots API
+app.get('/api/areas', requireAuth, async (req, res) => {
+    try {
+        const areas = await database.query('SELECT * FROM areas ORDER BY name');
+        res.json(areas);
+    } catch (error) {
+        console.error('Error getting areas:', error);
+        res.status(500).json({ error: 'Failed to get areas' });
+    }
+});
+
+app.get('/api/time-slots', requireAuth, async (req, res) => {
+    try {
+        const timeSlots = await database.query('SELECT * FROM time_slots ORDER BY sort_order');
+        res.json(timeSlots);
+    } catch (error) {
+        console.error('Error getting time slots:', error);
+        res.status(500).json({ error: 'Failed to get time slots' });
+    }
+});
+
+// Assignments API
+app.get('/api/assignments/schedule', requireAuth, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+        
+        const schedule = await Assignment.getScheduleMatrix(startDate, endDate);
+        res.json(schedule);
+    } catch (error) {
+        console.error('Error getting schedule:', error);
+        res.status(500).json({ error: 'Failed to get schedule' });
+    }
+});
+
+app.post('/api/assignments', requireAuth, async (req, res) => {
+    try {
+        console.log('Creating assignment with data:', req.body);
+        const { areaId, timeSlotId, date, teacherId, supervisionNumber } = req.body;
+        
+        if (!areaId || !timeSlotId || !date || !teacherId) {
+            console.error('Missing required fields:', { areaId, timeSlotId, date, teacherId });
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        const assignment = await Assignment.create(areaId, timeSlotId, date, teacherId, supervisionNumber);
+        console.log('Assignment created successfully:', assignment);
+        
+        // Emit real-time update
+        io.emit('assignmentCreated', assignment);
+        
+        res.json(assignment);
+    } catch (error) {
+        console.error('Error creating assignment:', error);
+        if (error.message === 'Assignment already exists for this slot') {
+            res.status(409).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: 'Failed to create assignment: ' + error.message });
+        }
+    }
+});
+
+app.put('/api/assignments/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { teacherId } = req.body;
+        
+        if (!teacherId) {
+            return res.status(400).json({ error: 'Teacher ID is required' });
+        }
+        
+        const assignment = await Assignment.update(id, teacherId);
+        
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        
+        // Emit real-time update
+        io.emit('assignmentUpdated', assignment);
+        
+        res.json(assignment);
+    } catch (error) {
+        console.error('Error updating assignment:', error);
+        res.status(500).json({ error: 'Failed to update assignment' });
+    }
+});
+
+app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const success = await Assignment.delete(id);
+        
+        if (!success) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        
+        // Emit real-time update
+        io.emit('assignmentDeleted', { id });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting assignment:', error);
+        res.status(500).json({ error: 'Failed to delete assignment' });
+    }
+});
+
+// Admin routes
+app.get('/api/admin/export-csv', requireAdminAuth, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+        
+        const assignments = await Assignment.getByDateRange(startDate, endDate);
+        
+        // Create CSV content
+        let csv = 'Date,Area,Time Slot,Teacher,Supervision Number\n';
+        assignments.forEach(assignment => {
+            csv += `${assignment.date},${assignment.area_name},"${assignment.time_slot_display}",${assignment.teacher_name},${assignment.supervision_number}\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="supervision-schedule-${startDate}-to-${endDate}.csv"`);
+        res.send(csv);
+    } catch (error) {
+        console.error('Error exporting CSV:', error);
+        res.status(500).json({ error: 'Failed to export CSV' });
+    }
+});
+
+// Socket.IO for real-time updates
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+    
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+    
+    socket.on('joinRoom', (room) => {
+        socket.join(room);
+        console.log(`User ${socket.id} joined room ${room}`);
+    });
+});
+
+// Debug endpoint
+app.get('/api/debug/info', requireAuth, async (req, res) => {
+    try {
+        const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
+        const areaCount = await database.query('SELECT COUNT(*) as count FROM areas');
+        const timeSlotCount = await database.query('SELECT COUNT(*) as count FROM time_slots');
+        const assignmentCount = await database.query('SELECT COUNT(*) as count FROM supervision_assignments');
+        
+        // Check areas with locations
+        const areasWithLocation = await database.query('SELECT name, location FROM areas ORDER BY location, name');
+        
+        res.json({
+            database: {
+                teachers: teacherCount[0].count,
+                areas: areaCount[0].count,
+                timeSlots: timeSlotCount[0].count,
+                assignments: assignmentCount[0].count
+            },
+            areas: areasWithLocation,
+            session: {
+                authenticated: !!req.session.authenticated,
+                isAdmin: !!req.session.isAdmin
+            },
+            server: {
+                port: PORT,
+                nodeVersion: process.version,
+                uptime: process.uptime()
+            }
+        });
+    } catch (error) {
+        console.error('Debug info error:', error);
+        res.status(500).json({ error: 'Failed to get debug info', details: error.message });
+    }
+});
+
+// Manual schema update endpoint
+app.post('/api/admin/update-schema', requireAdminAuth, async (req, res) => {
+    try {
+        await updateDatabaseSchema();
+        res.json({ success: true, message: 'Database schema updated successfully' });
+    } catch (error) {
+        console.error('Manual schema update error:', error);
+        res.status(500).json({ error: 'Failed to update schema', details: error.message });
+    }
+});
+
+// Serve admin page
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Initialize database and start server
+async function startServer() {
+    try {
+        await database.connect();
+        
+        // Import teachers from CSV if not already imported
+        try {
+            const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
+            if (teacherCount[0].count === 0) {
+                console.log('Importing teachers from CSV...');
+                await Teacher.importFromCSV('./teacher.csv');
+            }
+        } catch (error) {
+            console.error('Error importing teachers:', error);
+        }
+
+        // Update database schema if needed
+        try {
+            await updateDatabaseSchema();
+        } catch (error) {
+            console.error('Error updating database schema:', error);
+        }
+        
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`Main interface: http://localhost:${PORT}`);
+            console.log(`Admin interface: http://localhost:${PORT}/admin`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+// Database schema update function
+async function updateDatabaseSchema() {
+    try {
+        // Check if location column exists in areas table
+        const tableInfo = await database.query("PRAGMA table_info(areas)");
+        const hasLocationColumn = tableInfo.some(column => column.name === 'location');
+        
+        if (!hasLocationColumn) {
+            console.log('Adding location column to areas table...');
+            await database.run('ALTER TABLE areas ADD COLUMN location TEXT NOT NULL DEFAULT "Rendsburg"');
+            
+            // Update existing areas to have Rendsburg location
+            await database.run('UPDATE areas SET location = "Rendsburg" WHERE location IS NULL OR location = ""');
+            
+            console.log('Location column added successfully');
+        }
+        
+        // Check if we need to add new Eckernförde areas
+        const existingAreas = await database.query('SELECT name FROM areas');
+        const existingAreaNames = existingAreas.map(area => area.name);
+        
+        const eckernfoerdeAreas = [
+            ['ABS I', 1, 'Eckernförde'],
+            ['ECK 1', 1, 'Eckernförde'],
+            ['ECK II', 1, 'Eckernförde'],
+            ['ECK III', 1, 'Eckernförde'],
+            ['SOZ E', 1, 'Eckernförde']
+        ];
+        
+        for (const [name, count, location] of eckernfoerdeAreas) {
+            if (!existingAreaNames.includes(name)) {
+                console.log(`Adding new area: ${name}`);
+                await database.run(
+                    'INSERT INTO areas (name, supervision_count, location) VALUES (?, ?, ?)',
+                    [name, count, location]
+                );
+            }
+        }
+        
+        console.log('Database schema update completed');
+        
+    } catch (error) {
+        console.error('Error updating database schema:', error);
+        throw error;
+    }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('Shutting down server...');
+    await database.close();
+    process.exit(0);
+});
+
+startServer();

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pausenaufsicht Planer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2>Anmeldung</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password">Passwort:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit">Anmelden</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="hidden">
+        <header>
+            <h1>Pausenaufsicht Planer</h1>
+            <div class="header-controls">
+                <div class="location-tabs">
+                    <button id="rendsburgTab" class="location-tab active" data-location="Rendsburg">
+                        Rendsburg
+                    </button>
+                    <button id="eckernfoerdeTab" class="location-tab" data-location="Eckernförde">
+                        Eckernförde
+                    </button>
+                </div>
+                <div class="user-controls">
+                    <span id="userInfo"></span>
+                    <button id="logoutBtn">Abmelden</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div id="loadingIndicator" class="loading">Lade Daten...</div>
+            <div id="scheduleContainer" class="hidden">
+                <div id="scheduleGrid"></div>
+            </div>
+        </main>
+
+        <!-- Teacher Selection Modal -->
+        <div id="teacherModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Lehrkraft auswählen</h3>
+                    <button class="close-btn" id="closeTeacherModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="assignment-info">
+                        <p><strong>Bereich:</strong> <span id="modalAreaName"></span></p>
+                        <p><strong>Zeit:</strong> <span id="modalTimeSlot"></span></p>
+                        <p><strong>Datum:</strong> <span id="modalDate"></span></p>
+                        <p><strong>Aufsicht:</strong> <span id="modalSupervisionNumber"></span></p>
+                    </div>
+                    <div class="teacher-search">
+                        <input type="text" id="teacherSearch" placeholder="Lehrkraft suchen...">
+                        <div id="teacherResults" class="teacher-results"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmAssignment" class="btn-primary" disabled>Zuweisen</button>
+                        <button id="cancelAssignment" class="btn-secondary">Abbrechen</button>
+                        <button id="removeAssignment" class="btn-danger hidden">Entfernen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Bestätigung erforderlich</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmMessage"></p>
+                    <div class="modal-actions">
+                        <button id="confirmYes" class="btn-primary">Ja</button>
+                        <button id="confirmNo" class="btn-secondary">Nein</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessages"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
