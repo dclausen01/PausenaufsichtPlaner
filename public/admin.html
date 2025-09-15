@@ -285,12 +285,18 @@
             <!-- Export Section -->
             <div class="admin-section">
                 <div class="admin-section-header">
-                    CSV-Export
+                    CSV-Export & Viewer
                 </div>
                 <div class="admin-section-content">
-                    <button id="exportBtn" class="btn-primary">CSV herunterladen (8 Wochen)</button>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                        <button id="exportBtn" class="btn-primary">CSV herunterladen (8 Wochen)</button>
+                        <a href="/viewer" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; padding: 0.75rem 1.5rem; background: #4caf50; color: white; border-radius: 4px; font-weight: 500;">
+                            📊 CSV-Viewer öffnen
+                        </a>
+                    </div>
                     <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                        Exportiert alle Aufsichtszuweisungen für die nächsten 8 Wochen als CSV-Datei.
+                        <strong>CSV herunterladen:</strong> Exportiert alle Aufsichtszuweisungen für die nächsten 8 Wochen als CSV-Datei.<br>
+                        <strong>CSV-Viewer:</strong> Öffnet das integrierte Tool zur übersichtlichen Darstellung und Analyse von CSV-Dateien.
                     </p>
                 </div>
             </div>

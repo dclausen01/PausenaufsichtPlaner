@@ -349,14 +349,14 @@ app.get('/api/admin/export-csv', requireAdminAuth, async (req, res) => {
         
         const assignments = await Assignment.getByDateRange(startDate, endDate);
         
-        // Create CSV content
-        let csv = 'Date,Area,Time Slot,Teacher,Supervision Number\n';
+        // Create CSV content with German headers and semicolon separation (compatible with CSV viewer)
+        let csv = 'Datum;Zeitslot;Bereich;Lehrkraft;Aufsicht Nr.\n';
         assignments.forEach(assignment => {
-            csv += `${assignment.date},${assignment.area_name},"${assignment.time_slot_display}",${assignment.teacher_name},${assignment.supervision_number}\n`;
+            csv += `${assignment.date};${assignment.time_slot_display};${assignment.area_name};${assignment.teacher_name};${assignment.supervision_number}\n`;
         });
         
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="supervision-schedule-${startDate}-to-${endDate}.csv"`);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="pausenaufsicht-${startDate}-bis-${endDate}.csv"`);
         res.send(csv);
     } catch (error) {
         console.error('Error exporting CSV:', error);
@@ -462,6 +462,14 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Serve CSV viewer static files BEFORE the HTML route
+app.use('/viewer', express.static(path.join(__dirname, 'csv-viewer')));
+
+// Serve CSV viewer HTML (this will be the fallback for /viewer)
+app.get('/viewer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'csv-viewer', 'index.html'));
+});
+
 // Initialize database and start server
 async function startServer() {
     try {
@@ -493,6 +501,7 @@ async function startServer() {
             console.log(`Server running on port ${PORT}`);
             console.log(`Main interface: http://localhost:${PORT}`);
             console.log(`Admin interface: http://localhost:${PORT}/admin`);
+            console.log(`CSV Viewer: http://localhost:${PORT}/viewer`);
         });
     } catch (error) {
         console.error('Failed to start server:', error);
