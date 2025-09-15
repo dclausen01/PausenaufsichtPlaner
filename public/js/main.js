@@ -613,7 +613,16 @@ class PausenaufsichtApp {
             const timeSlot = this.timeSlots.find(ts => ts.id === context.timeSlotId);
             const dayName = this.getDayName(context.date);
             
-            const message = `${this.selectedTeacher.name} hat bereits eine Aufsicht am ${dayName} ${timeSlot.display_name} im Bereich "${conflictArea.name}". Möchten Sie trotzdem fortfahren?`;
+            // Include location information in the conflict message
+            let locationInfo = '';
+            if (conflict.conflictLocation && conflict.conflictLocation !== 'Unbekannt') {
+                const targetLocation = this.areas.find(a => a.id === context.areaId)?.location;
+                if (conflict.conflictLocation !== targetLocation) {
+                    locationInfo = ` (${conflict.conflictLocation})`;
+                }
+            }
+            
+            const message = `${this.selectedTeacher.name} hat bereits eine Aufsicht am ${dayName} ${timeSlot.display_name} im Bereich "${conflictArea.name}"${locationInfo}. Möchten Sie trotzdem fortfahren?`;
             
             if (!await this.showConfirmation(message)) {
                 return;
@@ -1020,13 +1029,15 @@ class PausenaufsichtApp {
         // Check if the teacher already has an assignment at the same time slot on the same day
         const targetDate = context.date;
         const targetTimeSlotId = context.timeSlotId;
+        const targetAreaId = context.areaId;
         
-        // For better conflict detection, check the exact date first, then same day of week
-        const conflicts = [];
+        console.log('Checking conflicts for teacher:', teacherId, 'on date:', targetDate, 'time slot:', targetTimeSlotId, 'area:', targetAreaId);
         
-        // 1. Check exact date conflicts (same date, same time slot)
+        // 1. Check exact date conflicts (same date, same time slot, ANY area, ANY location)
         if (this.currentSchedule.assignments[targetDate]) {
+            // Check ALL areas across ALL locations, not just current location
             for (const area of this.currentSchedule.areas) {
+                // Skip if no assignments for this area on this date
                 if (!this.currentSchedule.assignments[targetDate][area.id]) {
                     continue;
                 }
@@ -1037,16 +1048,29 @@ class PausenaufsichtApp {
                     if (assignment.teacher_id === teacherId) {
                         // Skip if this is the same assignment we're editing
                         if (context.assignmentId && assignment.id === context.assignmentId) {
+                            console.log('Skipping same assignment being edited:', assignment.id);
                             continue;
                         }
                         
-                        // Found a direct conflict on the same date
+                        // Found a direct conflict on the same date and time slot
+                        const conflictLocation = area.location || 'Unbekannt';
+                        const targetLocation = this.areas.find(a => a.id === targetAreaId)?.location || 'Unbekannt';
+                        
+                        console.log('Found exact date conflict:', {
+                            conflictArea: area.name,
+                            conflictLocation: conflictLocation,
+                            targetArea: this.areas.find(a => a.id === targetAreaId)?.name,
+                            targetLocation: targetLocation,
+                            assignment: assignment
+                        });
+                        
                         return {
                             areaId: area.id,
                             date: targetDate,
                             timeSlotId: targetTimeSlotId,
                             assignmentId: assignment.id,
-                            conflictType: 'exact_date'
+                            conflictType: 'exact_date',
+                            conflictLocation: conflictLocation
                         };
                     }
                 }
@@ -1055,6 +1079,7 @@ class PausenaufsichtApp {
         
         // 2. Check recurring conflicts (same day of week, same time slot, different weeks)
         const targetDayOfWeek = new Date(targetDate).getDay();
+        const conflicts = [];
         
         for (const dateStr of this.currentSchedule.dates) {
             // Skip the target date as we already checked it above
@@ -1096,7 +1121,13 @@ class PausenaufsichtApp {
         }
         
         // Return the first recurring conflict if any
-        return conflicts.length > 0 ? conflicts[0] : null;
+        if (conflicts.length > 0) {
+            console.log('Found recurring conflict:', conflicts[0]);
+            return conflicts[0];
+        }
+        
+        console.log('No conflicts found');
+        return null;
     }
 
     getDayName(dateStr) {
