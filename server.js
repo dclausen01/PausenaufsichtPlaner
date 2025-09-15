@@ -15,7 +15,8 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
-const PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!').digest('hex');
+const USER_PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!').digest('hex');
+const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!123').digest('hex');
 
 // Middleware
 app.use(express.json());
@@ -58,7 +59,15 @@ app.post('/api/login', async (req, res) => {
         const { password, isAdmin } = req.body;
         
         const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-        const isValid = passwordHash === PASSWORD_HASH;
+        let isValid = false;
+        
+        if (isAdmin) {
+            // Admin login - check admin password
+            isValid = passwordHash === ADMIN_PASSWORD_HASH;
+        } else {
+            // Regular user login - check user password
+            isValid = passwordHash === USER_PASSWORD_HASH;
+        }
         
         if (isValid) {
             req.session.authenticated = true;
@@ -313,6 +322,39 @@ app.post('/api/admin/update-schema', requireAdminAuth, async (req, res) => {
     } catch (error) {
         console.error('Manual schema update error:', error);
         res.status(500).json({ error: 'Failed to update schema', details: error.message });
+    }
+});
+
+// Update area supervision count endpoint
+app.put('/api/admin/areas/:id/supervision-count', requireAdminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { supervisionCount } = req.body;
+        
+        if (!supervisionCount || supervisionCount < 1 || supervisionCount > 5) {
+            return res.status(400).json({ error: 'Supervision count must be between 1 and 5' });
+        }
+        
+        const result = await database.run(
+            'UPDATE areas SET supervision_count = ? WHERE id = ?',
+            [supervisionCount, id]
+        );
+        
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Area not found' });
+        }
+        
+        // Get updated area info
+        const updatedArea = await database.query('SELECT * FROM areas WHERE id = ?', [id]);
+        
+        res.json({ 
+            success: true, 
+            message: 'Supervision count updated successfully',
+            area: updatedArea[0]
+        });
+    } catch (error) {
+        console.error('Error updating supervision count:', error);
+        res.status(500).json({ error: 'Failed to update supervision count' });
     }
 });
 

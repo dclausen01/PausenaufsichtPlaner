@@ -44,20 +44,29 @@ Ein interaktives Webbasiertes System zur Planung von Pausenaufsichten in Schulen
 
 ## Konfiguration
 
-### Passwort
+### Passwörter
 
-Das Standard-Passwort ist: `!gemeinsamzumerfolg!`
+- **Benutzer-Passwort**: `!gemeinsamzumerfolg!`
+- **Admin-Passwort**: `!gemeinsamzumerfolg!123`
 
 ### Aufsichtsbereiche
 
 Die folgenden Bereiche sind vorkonfiguriert:
 
+**Rendsburg:**
 - **RD A**: 2 Aufsichten
-- **RD 0/1/2**: 1 Aufsicht
+- **RD 0/1/2**: 2 Aufsichten
 - **RD 3/4**: 2 Aufsichten
 - **RD 5/6/7**: 1 Aufsicht
 - **SOZ A**: 1 Aufsicht
 - **SOZ G**: 1 Aufsicht
+
+**Eckernförde:**
+- **ABS I**: 1 Aufsicht
+- **ECK I**: 1 Aufsicht
+- **ECK II**: 1 Aufsicht
+- **ECK III**: 1 Aufsicht
+- **SOZ E**: 1 Aufsicht
 
 ### Pausenzeiten
 

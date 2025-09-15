@@ -144,6 +144,83 @@
             margin-right: 0.5rem;
             font-size: 1.2rem;
         }
+        
+        .area-config-list {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .area-config-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .area-config-item:last-child {
+            border-bottom: none;
+        }
+        
+        .area-info {
+            flex: 1;
+        }
+        
+        .area-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .area-location {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .area-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .supervision-count-input {
+            width: 60px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 1rem;
+        }
+        
+        .update-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .update-btn:hover {
+            background: #45a049;
+        }
+        
+        .update-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .current-count {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -227,6 +304,23 @@
                     <div id="teacherList" class="teacher-list">
                         <div style="padding: 2rem; text-align: center; color: #666;">
                             Lade Lehrkräfte...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area Configuration Section -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    Aufsichtsbereiche konfigurieren
+                </div>
+                <div class="admin-section-content">
+                    <p style="margin-bottom: 1rem; color: #666;">
+                        Hier können Sie die Anzahl der benötigten Aufsichtspersonen pro Bereich anpassen.
+                    </p>
+                    <div id="areaConfigList" class="area-config-list">
+                        <div style="padding: 2rem; text-align: center; color: #666;">
+                            Lade Aufsichtsbereiche...
                         </div>
                     </div>
                 </div>
