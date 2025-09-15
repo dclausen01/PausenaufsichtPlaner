@@ -242,7 +242,15 @@ class CSVViewerApp {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                animation: {
+                    duration: 0
+                },
                 plugins: {
                     legend: {
                         display: false

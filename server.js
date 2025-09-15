@@ -373,12 +373,12 @@ async function updateDatabaseSchema() {
         }
         
         // Check if we need to add new Eckernförde areas
-        const existingAreas = await database.query('SELECT name FROM areas');
+        const existingAreas = await database.query('SELECT name, supervision_count FROM areas');
         const existingAreaNames = existingAreas.map(area => area.name);
         
         const eckernfoerdeAreas = [
             ['ABS I', 1, 'Eckernförde'],
-            ['ECK 1', 1, 'Eckernförde'],
+            ['ECK I', 1, 'Eckernförde'],
             ['ECK II', 1, 'Eckernförde'],
             ['ECK III', 1, 'Eckernförde'],
             ['SOZ E', 1, 'Eckernförde']
@@ -392,6 +392,16 @@ async function updateDatabaseSchema() {
                     [name, count, location]
                 );
             }
+        }
+        
+        // Update RD 0/1/2 supervision count from 1 to 2 if needed
+        const rdArea = existingAreas.find(area => area.name === 'RD 0/1/2');
+        if (rdArea && rdArea.supervision_count === 1) {
+            console.log('Updating RD 0/1/2 supervision count from 1 to 2...');
+            await database.run(
+                'UPDATE areas SET supervision_count = 2 WHERE name = "RD 0/1/2"'
+            );
+            console.log('RD 0/1/2 supervision count updated successfully');
         }
         
         console.log('Database schema update completed');

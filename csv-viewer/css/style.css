@@ -444,12 +444,19 @@ table.dataTable tbody tr:hover {
     background: #f8f9fa;
     border-radius: 8px;
     padding: 1.5rem;
+    height: 400px;
+    position: relative;
 }
 
 .chart-container h4 {
     margin-bottom: 1rem;
     color: #333;
     text-align: center;
+}
+
+.chart-container canvas {
+    max-height: 320px !important;
+    height: 320px !important;
 }
 
 /* Loading Indicator */

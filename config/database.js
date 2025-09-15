@@ -89,13 +89,13 @@ class Database {
             // Insert areas with location
             const areas = [
                 ['RD A', 2, 'Rendsburg'],
-                ['RD 0/1/2', 1, 'Rendsburg'],
+                ['RD 0/1/2', 2, 'Rendsburg'],
                 ['RD 3/4', 2, 'Rendsburg'],
                 ['RD 5/6/7', 1, 'Rendsburg'],
                 ['SOZ A', 1, 'Rendsburg'],
                 ['SOZ G', 1, 'Rendsburg'],
                 ['ABS I', 1, 'Eckernförde'],
-                ['ECK 1', 1, 'Eckernförde'],
+                ['ECK I', 1, 'Eckernförde'],
                 ['ECK II', 1, 'Eckernförde'],
                 ['ECK III', 1, 'Eckernförde'],
                 ['SOZ E', 1, 'Eckernförde']
