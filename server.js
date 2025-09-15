@@ -364,6 +364,36 @@ app.get('/api/admin/export-csv', requireAdminAuth, async (req, res) => {
     }
 });
 
+// API route to get CSV data for direct viewer integration
+app.get('/api/admin/csv-data', requireAdminAuth, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+        
+        const assignments = await Assignment.getByDateRange(startDate, endDate);
+        
+        // Create CSV content with German headers and semicolon separation
+        let csvContent = 'Datum;Zeitslot;Bereich;Lehrkraft;Aufsicht Nr.\n';
+        assignments.forEach(assignment => {
+            csvContent += `${assignment.date};${assignment.time_slot_display};${assignment.area_name};${assignment.teacher_name};${assignment.supervision_number}\n`;
+        });
+        
+        // Return as JSON with CSV content and metadata
+        res.json({
+            csvContent: csvContent,
+            filename: `pausenaufsicht-${startDate}-bis-${endDate}.csv`,
+            recordCount: assignments.length,
+            dateRange: { startDate, endDate }
+        });
+    } catch (error) {
+        console.error('Error getting CSV data:', error);
+        res.status(500).json({ error: 'Failed to get CSV data' });
+    }
+});
+
 // Socket.IO for real-time updates
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);

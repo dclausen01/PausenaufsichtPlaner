@@ -17,8 +17,13 @@ class CSVViewerApp {
         this.setupDragAndDrop();
         this.initializeMoment();
         
-        // Show upload area initially
-        this.showUploadArea();
+        // Check for data passed from admin panel
+        this.checkForPassedData();
+        
+        // Show upload area initially (unless data was passed)
+        if (!this.hasPassedData) {
+            this.showUploadArea();
+        }
     }
 
     // Initialize Moment.js with German locale
@@ -517,6 +522,61 @@ class CSVViewerApp {
             console.error('Demo data loading error:', error);
             this.hideLoading();
             this.showError('Fehler beim Laden der Demo-Daten: ' + error.message);
+        }
+    }
+
+    // Check for data passed from admin panel
+    checkForPassedData() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const dataKey = urlParams.get('dataKey');
+        
+        if (dataKey) {
+            try {
+                const storedData = sessionStorage.getItem(dataKey);
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    this.loadPassedData(data);
+                    this.hasPassedData = true;
+                    
+                    // Clean up sessionStorage
+                    sessionStorage.removeItem(dataKey);
+                    
+                    // Clean up URL
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
+            } catch (error) {
+                console.error('Error loading passed data:', error);
+                this.showError('Fehler beim Laden der übertragenen Daten');
+            }
+        }
+    }
+
+    // Load data passed from admin panel
+    async loadPassedData(data) {
+        try {
+            this.showLoading('Lade übertragene Daten...');
+            
+            // Parse the CSV content
+            const result = await this.csvParser.parseCSV(data.csvContent);
+            
+            // Store data
+            this.currentData = result.data;
+            this.currentStats = result.stats;
+            
+            // Update UI
+            this.updateFileInfo(data.filename, result.stats);
+            this.initializeViews();
+            this.showMainContent();
+            
+            this.hideLoading();
+            this.exportManager.showSuccess(`Daten vom Admin-Panel geladen: ${data.filename} (${data.recordCount} Einträge)`);
+            
+        } catch (error) {
+            console.error('Error processing passed data:', error);
+            this.hideLoading();
+            this.showError('Fehler beim Verarbeiten der übertragenen Daten: ' + error.message);
+            this.showUploadArea();
         }
     }
 
