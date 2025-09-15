@@ -3,6 +3,9 @@ class PausenaufsichtApp {
     constructor() {
         this.authenticated = false;
         this.isAdmin = false;
+        this.teacherSelected = false;
+        this.selectedTeacherId = null;
+        this.selectedTeacherInfo = null;
         this.currentSchedule = null;
         this.teachers = [];
         this.areas = [];
@@ -44,10 +47,19 @@ class PausenaufsichtApp {
             const data = await response.json();
             this.authenticated = data.authenticated;
             this.isAdmin = data.isAdmin;
+            this.teacherSelected = data.teacherSelected;
+            this.selectedTeacherId = data.selectedTeacherId;
+            
+            // If authenticated but teacher not selected (and not admin), show teacher selection
+            if (this.authenticated && !this.isAdmin && !this.teacherSelected) {
+                this.showTeacherSelectionModal();
+            }
         } catch (error) {
             console.error('Error checking auth status:', error);
             this.authenticated = false;
             this.isAdmin = false;
+            this.teacherSelected = false;
+            this.selectedTeacherId = null;
         }
     }
 
@@ -102,6 +114,15 @@ class PausenaufsichtApp {
             this.handleConfirmation(false);
         });
 
+        // Teacher selection modal events
+        document.getElementById('teacherSelectionSearch').addEventListener('input', (e) => {
+            this.searchTeachersForSelection(e.target.value);
+        });
+
+        document.getElementById('confirmTeacherSelection').addEventListener('click', () => {
+            this.confirmTeacherSelection();
+        });
+
         // Close modals when clicking outside
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -127,11 +148,23 @@ class PausenaufsichtApp {
 
             if (response.ok) {
                 this.authenticated = true;
-                this.isAdmin = false; // Regular users are never admin
-                this.showApp();
-                this.setDefaultDates();
-                await this.loadInitialData();
-                window.wsManager.connect();
+                this.isAdmin = data.isAdmin || false;
+                this.teacherSelected = data.teacherSelected || false;
+                
+                // If not admin and teacher not selected, show teacher selection modal
+                if (!this.isAdmin && !this.teacherSelected) {
+                    this.showApp();
+                    this.setDefaultDates();
+                    await this.loadInitialData();
+                    window.wsManager.connect();
+                    this.showTeacherSelectionModal();
+                } else {
+                    this.showApp();
+                    this.setDefaultDates();
+                    await this.loadInitialData();
+                    window.wsManager.connect();
+                }
+                
                 this.showStatusMessage('Erfolgreich angemeldet', 'success');
             } else {
                 errorDiv.textContent = data.error || 'Anmeldung fehlgeschlagen';
@@ -388,6 +421,15 @@ class PausenaufsichtApp {
         const modal = document.getElementById('teacherModal');
         const context = this.currentAssignmentContext;
 
+        // Check if user can modify this assignment (for standard users)
+        if (!this.isAdmin && this.teacherSelected) {
+            // For existing assignments, check if it belongs to the selected teacher
+            if (context.assignmentId && context.teacherId !== this.selectedTeacherId) {
+                this.showStatusMessage('Sie können nur Ihre eigenen Aufsichten bearbeiten', 'error');
+                return;
+            }
+        }
+
         // Update modal info
         document.getElementById('modalAreaName').textContent = context.area.name;
         document.getElementById('modalTimeSlot').textContent = context.timeSlot.display_name;
@@ -399,30 +441,50 @@ class PausenaufsichtApp {
         document.getElementById('teacherResults').innerHTML = '';
         document.getElementById('confirmAssignment').disabled = true;
         
-        // Only reset selectedTeacher if we're not editing an existing assignment
-        if (!context.assignmentId) {
-            this.selectedTeacher = null;
+        // For standard users, pre-select their teacher
+        if (!this.isAdmin && this.teacherSelected && this.selectedTeacherInfo) {
+            this.selectedTeacher = this.selectedTeacherInfo;
+            document.getElementById('teacherSearch').value = this.selectedTeacher.name;
+            document.getElementById('confirmAssignment').disabled = false;
+            // Disable the search field for standard users
+            document.getElementById('teacherSearch').disabled = true;
+            document.getElementById('teacherSearch').placeholder = 'Nur Ihre eigenen Aufsichten möglich';
+        } else {
+            // Admin or no teacher selected - enable search
+            document.getElementById('teacherSearch').disabled = false;
+            document.getElementById('teacherSearch').placeholder = 'Lehrkraft suchen...';
+            
+            // Only reset selectedTeacher if we're not editing an existing assignment
+            if (!context.assignmentId) {
+                this.selectedTeacher = null;
+            }
         }
 
         // Show/hide remove button
         const removeBtn = document.getElementById('removeAssignment');
         if (context.assignmentId) {
             removeBtn.classList.remove('hidden');
-            // Pre-fill with current teacher
+            // Pre-fill with current teacher (if admin or if it's the user's own assignment)
             const currentTeacher = this.teachers.find(t => t.id === context.teacherId);
-            if (currentTeacher) {
-                document.getElementById('teacherSearch').value = currentTeacher.name;
-                this.selectedTeacher = currentTeacher;
+            if (currentTeacher && (this.isAdmin || context.teacherId === this.selectedTeacherId)) {
+                if (this.isAdmin) {
+                    document.getElementById('teacherSearch').value = currentTeacher.name;
+                    this.selectedTeacher = currentTeacher;
+                }
                 document.getElementById('confirmAssignment').disabled = false;
             }
         } else {
             removeBtn.classList.add('hidden');
-            // Reset selectedTeacher for new assignments
-            this.selectedTeacher = null;
+            // Reset selectedTeacher for new assignments (unless standard user)
+            if (this.isAdmin) {
+                this.selectedTeacher = null;
+            }
         }
 
         modal.classList.remove('hidden');
-        document.getElementById('teacherSearch').focus();
+        if (!document.getElementById('teacherSearch').disabled) {
+            document.getElementById('teacherSearch').focus();
+        }
     }
 
     hideTeacherModal() {
@@ -809,12 +871,44 @@ class PausenaufsichtApp {
         return `
             <div class="template-grid">
                 <div class="template-grid-header">
-                    <div class="day-column-header">Wochentag</div>
-                    ${this.currentSchedule.timeSlots.map(timeSlot => 
-                        `<div class="time-column-header">${timeSlot.display_name}</div>`
+                    <div class="time-column-header">Zeit</div>
+                    ${weekdays.map(day => 
+                        `<div class="day-column-header">${day.name}<br><span class="day-short">${day.short}</span></div>`
                     ).join('')}
                 </div>
-                ${weekdays.map((day, index) => this.createTemplateDayRow(area, day, sampleDate, index)).join('')}
+                ${this.currentSchedule.timeSlots.map(timeSlot => this.createTemplateTimeRow(area, timeSlot, sampleDate, weekdays)).join('')}
+            </div>
+        `;
+    }
+
+    createTemplateTimeRow(area, timeSlot, sampleDate, weekdays) {
+        return `
+            <div class="template-time-row">
+                <div class="time-cell-header">
+                    <div class="time-name">${timeSlot.display_name}</div>
+                </div>
+                ${weekdays.map((day, dayIndex) => {
+                    // Calculate the date for this day of the week
+                    const baseDate = new Date(sampleDate);
+                    const targetDate = new Date(baseDate);
+                    targetDate.setDate(baseDate.getDate() + dayIndex);
+                    const dateStr = targetDate.toISOString().split('T')[0];
+                    
+                    // Use assignments from the calculated date if available
+                    const assignments = this.currentSchedule.assignments[dateStr] ? 
+                        (this.currentSchedule.assignments[dateStr][area.id] ? 
+                            (this.currentSchedule.assignments[dateStr][area.id][timeSlot.id] || []) : []) : [];
+                    
+                    return `
+                        <div class="day-cell">
+                            ${Array.from({ length: area.supervision_count }, (_, index) => {
+                                const supervisionNumber = index + 1;
+                                const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
+                                return this.createSupervisionSlot(area, timeSlot, dateStr, supervisionNumber, assignment);
+                            }).join('')}
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     }
@@ -927,11 +1021,47 @@ class PausenaufsichtApp {
         const targetDate = context.date;
         const targetTimeSlotId = context.timeSlotId;
         
-        // Get the day of week for the target date
+        // For better conflict detection, check the exact date first, then same day of week
+        const conflicts = [];
+        
+        // 1. Check exact date conflicts (same date, same time slot)
+        if (this.currentSchedule.assignments[targetDate]) {
+            for (const area of this.currentSchedule.areas) {
+                if (!this.currentSchedule.assignments[targetDate][area.id]) {
+                    continue;
+                }
+                
+                const assignments = this.currentSchedule.assignments[targetDate][area.id][targetTimeSlotId] || [];
+                
+                for (const assignment of assignments) {
+                    if (assignment.teacher_id === teacherId) {
+                        // Skip if this is the same assignment we're editing
+                        if (context.assignmentId && assignment.id === context.assignmentId) {
+                            continue;
+                        }
+                        
+                        // Found a direct conflict on the same date
+                        return {
+                            areaId: area.id,
+                            date: targetDate,
+                            timeSlotId: targetTimeSlotId,
+                            assignmentId: assignment.id,
+                            conflictType: 'exact_date'
+                        };
+                    }
+                }
+            }
+        }
+        
+        // 2. Check recurring conflicts (same day of week, same time slot, different weeks)
         const targetDayOfWeek = new Date(targetDate).getDay();
         
-        // Check all dates in the schedule that have the same day of week
         for (const dateStr of this.currentSchedule.dates) {
+            // Skip the target date as we already checked it above
+            if (dateStr === targetDate) {
+                continue;
+            }
+            
             const date = new Date(dateStr);
             if (date.getDay() !== targetDayOfWeek) {
                 continue; // Skip different days of week
@@ -952,19 +1082,21 @@ class PausenaufsichtApp {
                             continue;
                         }
                         
-                        // Found a conflict
-                        return {
+                        // Found a recurring conflict
+                        conflicts.push({
                             areaId: area.id,
                             date: dateStr,
                             timeSlotId: targetTimeSlotId,
-                            assignmentId: assignment.id
-                        };
+                            assignmentId: assignment.id,
+                            conflictType: 'recurring'
+                        });
                     }
                 }
             }
         }
         
-        return null; // No conflict found
+        // Return the first recurring conflict if any
+        return conflicts.length > 0 ? conflicts[0] : null;
     }
 
     getDayName(dateStr) {
@@ -987,6 +1119,124 @@ class PausenaufsichtApp {
                 messageDiv.parentNode.removeChild(messageDiv);
             }
         }, 5000);
+    }
+
+    // Teacher Selection Modal Methods
+    showTeacherSelectionModal() {
+        const modal = document.getElementById('teacherSelectionModal');
+        document.getElementById('teacherSelectionSearch').value = '';
+        document.getElementById('teacherSelectionResults').innerHTML = '';
+        document.getElementById('confirmTeacherSelection').disabled = true;
+        this.selectedTeacherForSelection = null;
+        modal.classList.remove('hidden');
+        document.getElementById('teacherSelectionSearch').focus();
+    }
+
+    hideTeacherSelectionModal() {
+        document.getElementById('teacherSelectionModal').classList.add('hidden');
+        this.selectedTeacherForSelection = null;
+    }
+
+    async searchTeachersForSelection(query) {
+        if (query.length < 2) {
+            document.getElementById('teacherSelectionResults').innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/teachers/search?q=${encodeURIComponent(query)}`);
+            const teachers = await response.json();
+            
+            this.renderTeacherSelectionResults(teachers);
+        } catch (error) {
+            console.error('Error searching teachers for selection:', error);
+        }
+    }
+
+    renderTeacherSelectionResults(teachers) {
+        const container = document.getElementById('teacherSelectionResults');
+        
+        if (teachers.length === 0) {
+            container.innerHTML = '<div class="teacher-result">Keine Lehrkräfte gefunden</div>';
+            return;
+        }
+
+        // Clear existing content
+        container.innerHTML = '';
+        
+        // Create teacher result elements with proper event listeners
+        teachers.forEach(teacher => {
+            const teacherDiv = document.createElement('div');
+            teacherDiv.className = 'teacher-result';
+            teacherDiv.innerHTML = `
+                <div class="teacher-name">${teacher.name}</div>
+                <div class="teacher-full-name">${teacher.foreName} ${teacher.longName}</div>
+            `;
+            
+            // Add click event listener
+            teacherDiv.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.selectTeacherForSelection(teacher.id, teacherDiv);
+            });
+            
+            container.appendChild(teacherDiv);
+        });
+    }
+
+    selectTeacherForSelection(teacherId, clickedElement = null) {
+        this.selectedTeacherForSelection = this.teachers.find(t => t.id === teacherId);
+        
+        if (this.selectedTeacherForSelection) {
+            document.getElementById('teacherSelectionSearch').value = this.selectedTeacherForSelection.name;
+            document.getElementById('confirmTeacherSelection').disabled = false;
+            
+            // Update visual selection
+            document.querySelectorAll('#teacherSelectionResults .teacher-result').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            if (clickedElement) {
+                clickedElement.classList.add('selected');
+            }
+        }
+    }
+
+    async confirmTeacherSelection() {
+        if (!this.selectedTeacherForSelection) {
+            this.showStatusMessage('Bitte wählen Sie Ihr Lehrerkürzel aus', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/select-teacher', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ teacherId: this.selectedTeacherForSelection.id })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                this.teacherSelected = true;
+                this.selectedTeacherId = this.selectedTeacherForSelection.id;
+                this.selectedTeacherInfo = this.selectedTeacherForSelection;
+                
+                // Update user info to show selected teacher
+                const userInfo = document.getElementById('userInfo');
+                userInfo.textContent = `${this.selectedTeacherInfo.name} (${this.selectedTeacherInfo.foreName} ${this.selectedTeacherInfo.longName})`;
+                
+                this.hideTeacherSelectionModal();
+                this.showStatusMessage(`Lehrerkürzel ${this.selectedTeacherInfo.name} ausgewählt`, 'success');
+            } else {
+                this.showStatusMessage(data.error || 'Fehler bei der Auswahl', 'error');
+            }
+        } catch (error) {
+            console.error('Error confirming teacher selection:', error);
+            this.showStatusMessage('Verbindungsfehler', 'error');
+        }
     }
 }
 

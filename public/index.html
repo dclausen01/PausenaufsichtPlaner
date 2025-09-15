@@ -49,6 +49,25 @@
             </div>
         </main>
 
+        <!-- Teacher Selection Modal for Login -->
+        <div id="teacherSelectionModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Lehrerkürzel auswählen</h3>
+                </div>
+                <div class="modal-body">
+                    <p>Bitte wählen Sie Ihr Lehrerkürzel aus:</p>
+                    <div class="teacher-search">
+                        <input type="text" id="teacherSelectionSearch" placeholder="Lehrerkürzel suchen...">
+                        <div id="teacherSelectionResults" class="teacher-results"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmTeacherSelection" class="btn-primary" disabled>Auswählen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Teacher Selection Modal -->
         <div id="teacherModal" class="modal hidden">
             <div class="modal-content">

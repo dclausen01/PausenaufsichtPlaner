@@ -592,52 +592,78 @@ button {
 }
 
 .template-grid {
+    display: grid;
+    grid-template-columns: 120px repeat(5, 1fr);
+    gap: 1px;
+    background-color: #ddd;
     border: 1px solid #ddd;
-    border-radius: 6px;
-    overflow: hidden;
+    margin-top: 10px;
 }
 
 .template-grid-header {
-    display: grid;
-    grid-template-columns: 140px repeat(auto-fit, minmax(150px, 1fr));
-    background: #f8f9fa;
-    border-bottom: 2px solid #ddd;
+    display: contents;
 }
 
-.template-day-row {
-    display: grid;
-    grid-template-columns: 140px repeat(auto-fit, minmax(150px, 1fr));
-    border-bottom: 1px solid #eee;
-}
-
-.template-day-row:last-child {
-    border-bottom: none;
-}
-
-.template-day-row .day-cell {
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-right: 1px solid #ddd;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+.day-column-header,
+.time-column-header {
+    background-color: #f8f9fa;
+    padding: 8px;
+    font-weight: bold;
     text-align: center;
+    border: 1px solid #ddd;
+}
+
+.day-column-header {
+    font-size: 0.9em;
 }
 
 .day-short {
-    font-size: 0.8rem;
-    color: #999;
-    margin-top: 0.25rem;
+    font-size: 0.8em;
+    color: #666;
+    font-weight: normal;
 }
 
-/* Week View Styles (for legacy support) */
-.area-week-view {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin-bottom: 2rem;
-    overflow: hidden;
+.template-time-row {
+    display: contents;
+}
+
+.time-cell-header {
+    background-color: #f8f9fa;
+    padding: 8px;
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-name {
+    font-size: 0.9em;
+}
+
+.day-cell {
+    background-color: white;
+    padding: 4px;
+    border: 1px solid #ddd;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.template-day-row {
+    display: contents;
+}
+
+.time-cell {
+    background-color: white;
+    padding: 4px;
+    border: 1px solid #ddd;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .area-week-view .area-header {

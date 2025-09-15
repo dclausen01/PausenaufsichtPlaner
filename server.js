@@ -51,6 +51,37 @@ const requireAdminAuth = (req, res, next) => {
     }
 };
 
+// Middleware to require teacher selection for standard users
+const requireTeacherSelection = (req, res, next) => {
+    if (req.session.isAdmin) {
+        // Admin users don't need teacher selection
+        next();
+    } else if (req.session.teacherSelected && req.session.selectedTeacherId) {
+        // Standard user with teacher selected
+        next();
+    } else {
+        res.status(403).json({ error: 'Teacher selection required' });
+    }
+};
+
+// Middleware to check if user can modify assignments for a specific teacher
+const canModifyTeacherAssignment = (req, res, next) => {
+    if (req.session.isAdmin) {
+        // Admin can modify any assignment
+        next();
+    } else {
+        // Standard users can only modify assignments for their selected teacher
+        const requestedTeacherId = parseInt(req.body.teacherId);
+        const selectedTeacherId = req.session.selectedTeacherId;
+        
+        if (requestedTeacherId === selectedTeacherId) {
+            next();
+        } else {
+            res.status(403).json({ error: 'You can only modify assignments for your selected teacher' });
+        }
+    }
+};
+
 // Routes
 
 // Authentication
@@ -72,9 +103,14 @@ app.post('/api/login', async (req, res) => {
         if (isValid) {
             req.session.authenticated = true;
             req.session.isAdmin = isAdmin || false;
+            // For standard users, teacher selection is required
+            req.session.teacherSelected = isAdmin || false;
+            req.session.selectedTeacherId = null;
+            
             res.json({ 
                 success: true, 
                 isAdmin: req.session.isAdmin,
+                teacherSelected: req.session.teacherSelected,
                 message: 'Login successful' 
             });
         } else {
@@ -99,8 +135,45 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/auth-status', (req, res) => {
     res.json({ 
         authenticated: !!req.session.authenticated,
-        isAdmin: !!req.session.isAdmin
+        isAdmin: !!req.session.isAdmin,
+        teacherSelected: !!req.session.teacherSelected,
+        selectedTeacherId: req.session.selectedTeacherId || null
     });
+});
+
+// Teacher selection for standard users
+app.post('/api/select-teacher', requireAuth, async (req, res) => {
+    try {
+        const { teacherId } = req.body;
+        
+        if (!teacherId) {
+            return res.status(400).json({ error: 'Teacher ID is required' });
+        }
+        
+        // Verify teacher exists
+        const teacher = await Teacher.getById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ error: 'Teacher not found' });
+        }
+        
+        // Admin users don't need teacher selection
+        if (req.session.isAdmin) {
+            return res.status(400).json({ error: 'Admin users do not need teacher selection' });
+        }
+        
+        // Set selected teacher in session
+        req.session.selectedTeacherId = teacherId;
+        req.session.teacherSelected = true;
+        
+        res.json({ 
+            success: true, 
+            selectedTeacher: teacher,
+            message: 'Teacher selected successfully' 
+        });
+    } catch (error) {
+        console.error('Error selecting teacher:', error);
+        res.status(500).json({ error: 'Failed to select teacher' });
+    }
 });
 
 // Teachers API
@@ -167,7 +240,7 @@ app.get('/api/assignments/schedule', requireAuth, async (req, res) => {
     }
 });
 
-app.post('/api/assignments', requireAuth, async (req, res) => {
+app.post('/api/assignments', requireAuth, requireTeacherSelection, canModifyTeacherAssignment, async (req, res) => {
     try {
         console.log('Creating assignment with data:', req.body);
         const { areaId, timeSlotId, date, teacherId, supervisionNumber } = req.body;
@@ -194,13 +267,26 @@ app.post('/api/assignments', requireAuth, async (req, res) => {
     }
 });
 
-app.put('/api/assignments/:id', requireAuth, async (req, res) => {
+app.put('/api/assignments/:id', requireAuth, requireTeacherSelection, canModifyTeacherAssignment, async (req, res) => {
     try {
         const { id } = req.params;
         const { teacherId } = req.body;
         
         if (!teacherId) {
             return res.status(400).json({ error: 'Teacher ID is required' });
+        }
+        
+        // For standard users, also check if they can modify the existing assignment
+        if (!req.session.isAdmin) {
+            const existingAssignment = await Assignment.getById(id);
+            if (!existingAssignment) {
+                return res.status(404).json({ error: 'Assignment not found' });
+            }
+            
+            // Check if the existing assignment belongs to the selected teacher
+            if (existingAssignment.teacher_id !== req.session.selectedTeacherId) {
+                return res.status(403).json({ error: 'You can only modify assignments for your selected teacher' });
+            }
         }
         
         const assignment = await Assignment.update(id, teacherId);
@@ -219,9 +305,22 @@ app.put('/api/assignments/:id', requireAuth, async (req, res) => {
     }
 });
 
-app.delete('/api/assignments/:id', requireAuth, async (req, res) => {
+app.delete('/api/assignments/:id', requireAuth, requireTeacherSelection, async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // For standard users, check if they can delete the assignment
+        if (!req.session.isAdmin) {
+            const existingAssignment = await Assignment.getById(id);
+            if (!existingAssignment) {
+                return res.status(404).json({ error: 'Assignment not found' });
+            }
+            
+            // Check if the assignment belongs to the selected teacher
+            if (existingAssignment.teacher_id !== req.session.selectedTeacherId) {
+                return res.status(403).json({ error: 'You can only delete assignments for your selected teacher' });
+            }
+        }
         
         const success = await Assignment.delete(id);
         
@@ -368,22 +467,26 @@ async function startServer() {
     try {
         await database.connect();
         
-        // Import teachers from CSV if not already imported
-        try {
-            const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
-            if (teacherCount[0].count === 0) {
-                console.log('Importing teachers from CSV...');
-                await Teacher.importFromCSV('./teacher.csv');
-            }
-        } catch (error) {
-            console.error('Error importing teachers:', error);
-        }
-
-        // Update database schema if needed
+        // Update database schema first
         try {
             await updateDatabaseSchema();
         } catch (error) {
             console.error('Error updating database schema:', error);
+        }
+
+        // Import teachers from CSV after schema is updated
+        try {
+            const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
+            if (teacherCount[0].count === 0) {
+                console.log('Importing teachers from CSV...');
+                const imported = await Teacher.importFromCSV('./teacher.csv');
+                console.log(`Successfully imported ${imported} teachers from CSV`);
+            } else {
+                console.log(`Database already contains ${teacherCount[0].count} teachers`);
+            }
+        } catch (error) {
+            console.error('Error importing teachers:', error);
+            console.error('CSV import failed, but server will continue...');
         }
         
         server.listen(PORT, () => {
