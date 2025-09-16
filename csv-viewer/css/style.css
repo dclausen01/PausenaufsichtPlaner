@@ -306,6 +306,32 @@ table.dataTable tbody tr:hover {
     margin-bottom: 2rem;
 }
 
+.weekly-grid-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
+    border-radius: 8px;
+}
+
+.weekly-grid-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.weekly-grid-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.weekly-grid-container::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.weekly-grid-container::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
 .weekly-grid {
     display: grid;
     grid-template-columns: 120px repeat(7, 1fr);
@@ -313,6 +339,7 @@ table.dataTable tbody tr:hover {
     background: #e9ecef;
     border-radius: 8px;
     overflow: hidden;
+    min-width: 900px;
 }
 
 .weekly-header {
@@ -350,6 +377,103 @@ table.dataTable tbody tr:hover {
     padding: 0.25rem;
     border-radius: 3px;
     font-size: 0.7rem;
+    text-align: center;
+    border-left: 3px solid #2196f3;
+}
+
+/* Mobile Weekly Carousel */
+.mobile-weekly-carousel {
+    display: none;
+    position: relative;
+}
+
+.mobile-weekly-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    border-radius: 8px 8px 0 0;
+}
+
+.mobile-weekly-nav-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background-color 0.2s;
+}
+
+.mobile-weekly-nav-btn:hover {
+    background: #5a6fd8;
+}
+
+.mobile-weekly-nav-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.mobile-weekly-indicator {
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+    flex: 1;
+}
+
+.mobile-weekly-content {
+    background: white;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+.mobile-day-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 1px;
+    background: #e9ecef;
+}
+
+.mobile-day-grid .weekly-timeslot {
+    background: #f8f9fa;
+    padding: 0.75rem 0.5rem;
+    font-weight: 500;
+    font-size: 0.8rem;
+    border-right: 1px solid #ddd;
+}
+
+.mobile-day-grid .weekly-header {
+    background: #667eea;
+    color: white;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.mobile-day-grid .weekly-cell {
+    background: white;
+    padding: 0.5rem;
+    min-height: 70px;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-right: 1px solid #ddd;
+}
+
+.mobile-day-grid .weekly-assignment {
+    background: #e3f2fd;
+    padding: 0.3rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
     text-align: center;
     border-left: 3px solid #2196f3;
 }
@@ -594,8 +718,35 @@ table.dataTable tbody tr:hover {
         text-align: center;
     }
     
-    .weekly-grid {
-        grid-template-columns: 60px repeat(7, 1fr);
-        font-size: 0.7rem;
+    /* Hide regular weekly grid on mobile */
+    .weekly-grid-container {
+        display: none;
+    }
+    
+    /* Show mobile carousel */
+    .mobile-weekly-carousel {
+        display: block;
+    }
+    
+    .tab-content {
+        padding: 1rem;
+    }
+    
+    .teachers-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .charts-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        height: 300px;
+        padding: 1rem;
+    }
+    
+    .chart-container canvas {
+        max-height: 220px !important;
+        height: 220px !important;
     }
 }

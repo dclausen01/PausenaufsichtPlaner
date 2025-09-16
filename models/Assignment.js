@@ -139,6 +139,26 @@ class Assignment {
             const areas = await database.query('SELECT id, name, supervision_count, location FROM areas ORDER BY location, name');
             const timeSlots = await database.query('SELECT * FROM time_slots ORDER BY sort_order');
             
+            // Get area-timeslot availability
+            const availability = await database.query(`
+                SELECT area_id, time_slot_id, is_available 
+                FROM area_timeslot_availability
+            `);
+            
+            // Create availability map for quick lookup
+            const availabilityMap = new Map();
+            availability.forEach(item => {
+                const key = `${item.area_id}-${item.time_slot_id}`;
+                availabilityMap.set(key, item.is_available === 1);
+            });
+            
+            // Helper function to check if combination is available
+            const isAvailable = (areaId, timeSlotId) => {
+                const key = `${areaId}-${timeSlotId}`;
+                // If no availability data exists, default to available (true)
+                return availabilityMap.has(key) ? availabilityMap.get(key) : true;
+            };
+            
             // Get all assignments in the date range
             const assignments = await this.getByDateRange(startDate, endDate);
             
@@ -165,16 +185,19 @@ class Assignment {
                 areas.forEach(area => {
                     matrix.assignments[date][area.id] = {};
                     timeSlots.forEach(timeSlot => {
-                        matrix.assignments[date][area.id][timeSlot.id] = [];
-                        
-                        // Find assignments for this combination
-                        const dayAssignments = assignments.filter(a => 
-                            a.date === date && 
-                            a.area_id === area.id && 
-                            a.time_slot_id === timeSlot.id
-                        );
-                        
-                        matrix.assignments[date][area.id][timeSlot.id] = dayAssignments;
+                        // Only include available area-timeslot combinations
+                        if (isAvailable(area.id, timeSlot.id)) {
+                            matrix.assignments[date][area.id][timeSlot.id] = [];
+                            
+                            // Find assignments for this combination
+                            const dayAssignments = assignments.filter(a => 
+                                a.date === date && 
+                                a.area_id === area.id && 
+                                a.time_slot_id === timeSlot.id
+                            );
+                            
+                            matrix.assignments[date][area.id][timeSlot.id] = dayAssignments;
+                        }
                     });
                 });
             });

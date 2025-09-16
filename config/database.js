@@ -64,6 +64,19 @@ class Database {
                     FOREIGN KEY (time_slot_id) REFERENCES time_slots (id),
                     FOREIGN KEY (teacher_id) REFERENCES teachers (id),
                     UNIQUE(area_id, time_slot_id, date, supervision_number)
+                )`,
+                
+                // Area-timeslot availability table
+                `CREATE TABLE IF NOT EXISTS area_timeslot_availability (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    area_id INTEGER NOT NULL,
+                    time_slot_id INTEGER NOT NULL,
+                    is_available BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (area_id) REFERENCES areas (id),
+                    FOREIGN KEY (time_slot_id) REFERENCES time_slots (id),
+                    UNIQUE(area_id, time_slot_id)
                 )`
             ];
 
@@ -113,6 +126,12 @@ class Database {
             let insertedAreas = 0;
             let insertedTimeSlots = 0;
 
+            const checkCompletion = () => {
+                if (insertedAreas === areas.length && insertedTimeSlots === timeSlots.length) {
+                    this.populateAreaTimeslotAvailability().then(resolve).catch(reject);
+                }
+            };
+
             // Insert areas
             areas.forEach(([name, count, location]) => {
                 this.db.run(
@@ -123,9 +142,7 @@ class Database {
                             console.error('Error inserting area:', err);
                         }
                         insertedAreas++;
-                        if (insertedAreas === areas.length && insertedTimeSlots === timeSlots.length) {
-                            resolve();
-                        }
+                        checkCompletion();
                     }
                 );
             });
@@ -140,12 +157,58 @@ class Database {
                             console.error('Error inserting time slot:', err);
                         }
                         insertedTimeSlots++;
-                        if (insertedAreas === areas.length && insertedTimeSlots === timeSlots.length) {
-                            resolve();
-                        }
+                        checkCompletion();
                     }
                 );
             });
+        });
+    }
+
+    populateAreaTimeslotAvailability() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Check if availability data already exists
+                const existingCount = await this.query('SELECT COUNT(*) as count FROM area_timeslot_availability');
+                if (existingCount[0].count > 0) {
+                    console.log('Area-timeslot availability data already exists');
+                    resolve();
+                    return;
+                }
+
+                // Get all areas and time slots
+                const areas = await this.query('SELECT id FROM areas');
+                const timeSlots = await this.query('SELECT id FROM time_slots');
+
+                console.log(`Populating area-timeslot availability for ${areas.length} areas and ${timeSlots.length} time slots`);
+
+                let insertedCount = 0;
+                const totalInserts = areas.length * timeSlots.length;
+
+                // Insert all combinations as available by default
+                for (const area of areas) {
+                    for (const timeSlot of timeSlots) {
+                        this.db.run(
+                            'INSERT OR IGNORE INTO area_timeslot_availability (area_id, time_slot_id, is_available) VALUES (?, ?, 1)',
+                            [area.id, timeSlot.id],
+                            (err) => {
+                                if (err) {
+                                    console.error('Error inserting area-timeslot availability:', err);
+                                    reject(err);
+                                    return;
+                                }
+                                insertedCount++;
+                                if (insertedCount === totalInserts) {
+                                    console.log(`Successfully populated ${insertedCount} area-timeslot availability records`);
+                                    resolve();
+                                }
+                            }
+                        );
+                    }
+                }
+            } catch (error) {
+                console.error('Error populating area-timeslot availability:', error);
+                reject(error);
+            }
         });
     }
 

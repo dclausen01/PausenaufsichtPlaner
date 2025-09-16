@@ -423,6 +423,7 @@ class TableManager {
     renderWeeklyView() {
         if (this.weeklyData.length === 0) {
             document.getElementById('weeklyGrid').innerHTML = '<p class="text-center">Keine Daten verfügbar</p>';
+            this.renderMobileWeeklyCarousel();
             return;
         }
 
@@ -444,7 +445,7 @@ class TableManager {
             this.csvParser.getTimeSlotOrder(a) - this.csvParser.getTimeSlotOrder(b)
         );
 
-        // Generate grid HTML
+        // Generate grid HTML for desktop/tablet
         let gridHTML = '';
         
         // Header row
@@ -484,7 +485,127 @@ class TableManager {
             }
         });
 
-        document.getElementById('weeklyGrid').innerHTML = gridHTML;
+        // Wrap in container for horizontal scrolling
+        const containerHTML = `
+            <div class="weekly-grid-container">
+                <div class="weekly-grid">${gridHTML}</div>
+            </div>
+        `;
+
+        document.getElementById('weeklyGrid').innerHTML = containerHTML;
+
+        // Render mobile carousel
+        this.renderMobileWeeklyCarousel(week, sortedTimeSlots);
+    }
+
+    // Render mobile weekly carousel
+    renderMobileWeeklyCarousel(week = null, timeSlots = []) {
+        const carouselContainer = document.getElementById('mobileWeeklyCarousel');
+        if (!carouselContainer) {
+            // Create mobile carousel container if it doesn't exist
+            const weeklyView = document.getElementById('weeklyView');
+            const carousel = document.createElement('div');
+            carousel.id = 'mobileWeeklyCarousel';
+            carousel.className = 'mobile-weekly-carousel';
+            weeklyView.appendChild(carousel);
+        }
+
+        if (!week || this.weeklyData.length === 0) {
+            document.getElementById('mobileWeeklyCarousel').innerHTML = '<p class="text-center">Keine Daten verfügbar</p>';
+            return;
+        }
+
+        const weekStart = new Date(week.weekStart);
+        const weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        
+        let carouselHTML = `
+            <div class="mobile-weekly-navigation">
+                <button class="mobile-weekly-nav-btn" onclick="csvViewerApp.tableManager.navigateMobileWeeklyDay(-1)">‹</button>
+                <div class="mobile-weekly-indicator" id="mobile-weekly-indicator">Montag</div>
+                <button class="mobile-weekly-nav-btn" onclick="csvViewerApp.tableManager.navigateMobileWeeklyDay(1)">›</button>
+            </div>
+            <div class="mobile-weekly-content">
+        `;
+
+        // Generate day grids (Monday to Friday only)
+        weekdays.forEach((dayName, dayIndex) => {
+            const date = new Date(weekStart);
+            date.setDate(weekStart.getDate() + dayIndex);
+            const dateKey = date.toISOString().split('T')[0];
+            const dayData = week.days.get(dateKey) || [];
+            
+            const isVisible = dayIndex === 0 ? '' : 'style="display: none;"';
+            
+            carouselHTML += `
+                <div class="mobile-day-grid" data-day-index="${dayIndex}" ${isVisible}>
+                    <div class="weekly-timeslot">Zeit</div>
+                    <div class="weekly-header">${dayName}</div>
+            `;
+
+            timeSlots.forEach(timeSlot => {
+                const slotData = dayData.filter(row => row.timeSlot === timeSlot);
+                
+                carouselHTML += `<div class="weekly-timeslot">${timeSlot}</div>`;
+                
+                let cellHTML = '<div class="weekly-cell">';
+                slotData.forEach(assignment => {
+                    const colorClass = this.csvParser.getAreaColorClass(assignment.area);
+                    const teacherDisplay = assignment.isEmpty ? 'Unbesetzt' : assignment.teacher;
+                    cellHTML += `<div class="weekly-assignment ${colorClass}">
+                        <div style="font-weight: bold; font-size: 0.6rem;">${assignment.area}</div>
+                        <div>${teacherDisplay}</div>
+                    </div>`;
+                });
+                cellHTML += '</div>';
+                
+                carouselHTML += cellHTML;
+            });
+
+            carouselHTML += '</div>';
+        });
+
+        carouselHTML += '</div>';
+
+        document.getElementById('mobileWeeklyCarousel').innerHTML = carouselHTML;
+        
+        // Initialize mobile day navigation
+        this.currentMobileDay = 0;
+    }
+
+    // Navigate mobile weekly day
+    navigateMobileWeeklyDay(direction) {
+        const weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        const carouselContainer = document.getElementById('mobileWeeklyCarousel');
+        const indicator = carouselContainer.querySelector('.mobile-weekly-indicator');
+        const dayGrids = carouselContainer.querySelectorAll('.mobile-day-grid');
+        
+        // Find current visible day
+        let currentDayIndex = this.currentMobileDay || 0;
+
+        // Calculate new day index
+        let newDayIndex = currentDayIndex + direction;
+        if (newDayIndex < 0) newDayIndex = weekdays.length - 1;
+        if (newDayIndex >= weekdays.length) newDayIndex = 0;
+
+        // Hide all day grids
+        dayGrids.forEach(grid => {
+            grid.style.display = 'none';
+        });
+
+        // Show new day grid
+        if (dayGrids[newDayIndex]) {
+            dayGrids[newDayIndex].style.display = 'grid';
+        }
+
+        // Update indicator
+        indicator.textContent = weekdays[newDayIndex];
+
+        // Update current day
+        this.currentMobileDay = newDayIndex;
+
+        // Update navigation buttons
+        const navButtons = carouselContainer.querySelectorAll('.mobile-weekly-nav-btn');
+        navButtons.forEach(btn => btn.disabled = false);
     }
 
     // Setup weekly navigation

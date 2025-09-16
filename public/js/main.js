@@ -850,10 +850,114 @@ class PausenaufsichtApp {
             </div>
             <div class="template-container">
                 ${this.createTemplateGrid(area, sampleMonday)}
+                ${this.createMobileCarousel(area, sampleMonday)}
             </div>
         `;
         
         return areaDiv;
+    }
+
+    createMobileCarousel(area, sampleDate) {
+        const weekdays = [
+            { name: 'Montag', short: 'Mo' },
+            { name: 'Dienstag', short: 'Di' },
+            { name: 'Mittwoch', short: 'Mi' },
+            { name: 'Donnerstag', short: 'Do' },
+            { name: 'Freitag', short: 'Fr' }
+        ];
+
+        return `
+            <div class="mobile-day-carousel">
+                <div class="mobile-day-navigation">
+                    <button class="mobile-day-nav-btn" onclick="app.navigateMobileDay('${area.id}', -1)">‹</button>
+                    <div class="mobile-day-indicator" id="mobile-day-indicator-${area.id}">Montag</div>
+                    <button class="mobile-day-nav-btn" onclick="app.navigateMobileDay('${area.id}', 1)">›</button>
+                </div>
+                <div class="mobile-day-content" id="mobile-day-content-${area.id}">
+                    ${weekdays.map((day, dayIndex) => 
+                        this.createMobileDayGrid(area, sampleDate, day, dayIndex)
+                    ).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    createMobileDayGrid(area, sampleDate, day, dayIndex) {
+        // Calculate the date for this day of the week
+        const baseDate = new Date(sampleDate);
+        const targetDate = new Date(baseDate);
+        targetDate.setDate(baseDate.getDate() + dayIndex);
+        const dateStr = targetDate.toISOString().split('T')[0];
+
+        const isVisible = dayIndex === 0 ? '' : 'style="display: none;"';
+
+        // Filter time slots to only show available ones for this area
+        const availableTimeSlots = this.currentSchedule.timeSlots.filter(timeSlot => 
+            this.isAreaTimeSlotAvailable(area.id, timeSlot.id)
+        );
+
+        return `
+            <div class="mobile-day-grid" data-day-index="${dayIndex}" ${isVisible}>
+                <div class="time-column-header">Zeit</div>
+                <div class="day-column-header">${day.name}</div>
+                ${availableTimeSlots.map(timeSlot => {
+                    const assignments = this.currentSchedule.assignments[dateStr] ? 
+                        (this.currentSchedule.assignments[dateStr][area.id] ? 
+                            (this.currentSchedule.assignments[dateStr][area.id][timeSlot.id] || []) : []) : [];
+                    
+                    return `
+                        <div class="time-cell">${timeSlot.display_name}</div>
+                        <div class="day-cell">
+                            ${Array.from({ length: area.supervision_count }, (_, index) => {
+                                const supervisionNumber = index + 1;
+                                const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
+                                return this.createSupervisionSlot(area, timeSlot, dateStr, supervisionNumber, assignment);
+                            }).join('')}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    navigateMobileDay(areaId, direction) {
+        const weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        const contentContainer = document.getElementById(`mobile-day-content-${areaId}`);
+        const indicator = document.getElementById(`mobile-day-indicator-${areaId}`);
+        const dayGrids = contentContainer.querySelectorAll('.mobile-day-grid');
+        
+        // Find current visible day
+        let currentDayIndex = 0;
+        dayGrids.forEach((grid, index) => {
+            if (grid.style.display !== 'none') {
+                currentDayIndex = index;
+            }
+        });
+
+        // Calculate new day index
+        let newDayIndex = currentDayIndex + direction;
+        if (newDayIndex < 0) newDayIndex = weekdays.length - 1;
+        if (newDayIndex >= weekdays.length) newDayIndex = 0;
+
+        // Hide all day grids
+        dayGrids.forEach(grid => {
+            grid.style.display = 'none';
+        });
+
+        // Show new day grid
+        dayGrids[newDayIndex].style.display = 'grid';
+
+        // Update indicator
+        indicator.textContent = weekdays[newDayIndex];
+
+        // Update navigation buttons
+        const navContainer = contentContainer.parentElement.querySelector('.mobile-day-navigation');
+        const prevBtn = navContainer.querySelector('.mobile-day-nav-btn:first-child');
+        const nextBtn = navContainer.querySelector('.mobile-day-nav-btn:last-child');
+        
+        // Enable/disable buttons (optional - you can remove this if you want infinite scrolling)
+        prevBtn.disabled = false;
+        nextBtn.disabled = false;
     }
 
     findSampleMonday() {
@@ -891,6 +995,12 @@ class PausenaufsichtApp {
     }
 
     createTemplateTimeRow(area, timeSlot, sampleDate, weekdays) {
+        // Check if this area-timeslot combination is available
+        const isAvailable = this.isAreaTimeSlotAvailable(area.id, timeSlot.id);
+        if (!isAvailable) {
+            return ''; // Don't render unavailable time slots
+        }
+        
         return `
             <div class="template-time-row">
                 <div class="time-cell-header">
@@ -920,6 +1030,20 @@ class PausenaufsichtApp {
                 }).join('')}
             </div>
         `;
+    }
+
+    isAreaTimeSlotAvailable(areaId, timeSlotId) {
+        // Check if this area-timeslot combination exists in the schedule matrix
+        // If it doesn't exist, it means it's not available
+        if (!this.currentSchedule || !this.currentSchedule.dates.length) {
+            return true; // Default to available if no schedule data
+        }
+        
+        // Check any date to see if this combination exists
+        const sampleDate = this.currentSchedule.dates[0];
+        return this.currentSchedule.assignments[sampleDate] &&
+               this.currentSchedule.assignments[sampleDate][areaId] &&
+               this.currentSchedule.assignments[sampleDate][areaId].hasOwnProperty(timeSlotId);
     }
 
     createTemplateDayRow(area, day, sampleDate, dayOffset) {

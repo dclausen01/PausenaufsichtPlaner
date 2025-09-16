@@ -394,6 +394,118 @@ app.get('/api/admin/csv-data', requireAdminAuth, async (req, res) => {
     }
 });
 
+// Area-timeslot availability management routes
+app.get('/api/admin/area-timeslot-availability', requireAdminAuth, async (req, res) => {
+    try {
+        const availability = await database.query(`
+            SELECT 
+                ata.id,
+                ata.area_id,
+                ata.time_slot_id,
+                ata.is_available,
+                a.name as area_name,
+                a.location as area_location,
+                ts.display_name as time_slot_name,
+                ts.sort_order as time_slot_order
+            FROM area_timeslot_availability ata
+            JOIN areas a ON ata.area_id = a.id
+            JOIN time_slots ts ON ata.time_slot_id = ts.id
+            ORDER BY a.location, a.name, ts.sort_order
+        `);
+        
+        res.json(availability);
+    } catch (error) {
+        console.error('Error getting area-timeslot availability:', error);
+        res.status(500).json({ error: 'Failed to get availability data' });
+    }
+});
+
+app.put('/api/admin/area-timeslot-availability', requireAdminAuth, async (req, res) => {
+    try {
+        const { areaId, timeSlotId, isAvailable } = req.body;
+        
+        if (!areaId || !timeSlotId || typeof isAvailable !== 'boolean') {
+            return res.status(400).json({ error: 'Area ID, time slot ID, and availability status are required' });
+        }
+        
+        // If disabling availability, check for existing assignments
+        let conflictingAssignments = [];
+        if (!isAvailable) {
+            conflictingAssignments = await database.query(`
+                SELECT 
+                    sa.id,
+                    sa.date,
+                    sa.supervision_number,
+                    t.name as teacher_name,
+                    a.name as area_name,
+                    ts.display_name as time_slot_name
+                FROM supervision_assignments sa
+                JOIN teachers t ON sa.teacher_id = t.id
+                JOIN areas a ON sa.area_id = a.id
+                JOIN time_slots ts ON sa.time_slot_id = ts.id
+                WHERE sa.area_id = ? AND sa.time_slot_id = ?
+            `, [areaId, timeSlotId]);
+        }
+        
+        // Update availability
+        await database.run(`
+            UPDATE area_timeslot_availability 
+            SET is_available = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE area_id = ? AND time_slot_id = ?
+        `, [isAvailable ? 1 : 0, areaId, timeSlotId]);
+        
+        // If disabling and there are conflicting assignments, remove them
+        if (!isAvailable && conflictingAssignments.length > 0) {
+            await database.run(`
+                DELETE FROM supervision_assignments 
+                WHERE area_id = ? AND time_slot_id = ?
+            `, [areaId, timeSlotId]);
+            
+            console.log(`Removed ${conflictingAssignments.length} conflicting assignments for area ${areaId}, time slot ${timeSlotId}`);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Availability updated successfully',
+            removedAssignments: conflictingAssignments.length
+        });
+    } catch (error) {
+        console.error('Error updating area-timeslot availability:', error);
+        res.status(500).json({ error: 'Failed to update availability' });
+    }
+});
+
+app.get('/api/admin/conflicting-assignments', requireAdminAuth, async (req, res) => {
+    try {
+        const { areaId, timeSlotId } = req.query;
+        
+        if (!areaId || !timeSlotId) {
+            return res.status(400).json({ error: 'Area ID and time slot ID are required' });
+        }
+        
+        const assignments = await database.query(`
+            SELECT 
+                sa.id,
+                sa.date,
+                sa.supervision_number,
+                t.name as teacher_name,
+                a.name as area_name,
+                ts.display_name as time_slot_name
+            FROM supervision_assignments sa
+            JOIN teachers t ON sa.teacher_id = t.id
+            JOIN areas a ON sa.area_id = a.id
+            JOIN time_slots ts ON sa.time_slot_id = ts.id
+            WHERE sa.area_id = ? AND sa.time_slot_id = ?
+            ORDER BY sa.date, sa.supervision_number
+        `, [areaId, timeSlotId]);
+        
+        res.json(assignments);
+    } catch (error) {
+        console.error('Error getting conflicting assignments:', error);
+        res.status(500).json({ error: 'Failed to get conflicting assignments' });
+    }
+});
+
 // Socket.IO for real-time updates
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
