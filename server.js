@@ -338,6 +338,24 @@ app.delete('/api/assignments/:id', requireAuth, requireTeacherSelection, async (
     }
 });
 
+// Get assignments for the current teacher
+app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection, async (req, res) => {
+    try {
+        const teacherId = req.session.selectedTeacherId;
+        const { startDate, endDate } = req.query;
+        
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start and end dates are required' });
+        }
+        
+        const assignments = await Assignment.getTeacherAssignments(teacherId, startDate, endDate);
+        res.json(assignments);
+    } catch (error) {
+        console.error('Error fetching teacher assignments:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin routes
 app.get('/api/admin/export-csv', requireAdminAuth, async (req, res) => {
     try {

@@ -146,6 +146,15 @@ header h1 {
     background: #d32f2f;
 }
 
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
 /* Main content */
 main {
     padding: 2rem;
@@ -547,6 +556,68 @@ button {
     to {
         transform: translateX(0);
         opacity: 1;
+    }
+}
+
+/* My Assignments Modal Styles */
+#myAssignmentsModal .modal-content {
+    max-width: 800px;
+}
+
+.assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.assignments-table th,
+.assignments-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.assignments-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.assignments-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.assignments-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+.print-controls {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+@media print {
+    body {
+        font-size: 12px;
+    }
+    
+    .assignments-table th,
+    .assignments-table td {
+        padding: 8px;
+    }
+    
+    .print-controls {
+        display: none;
+    }
+    
+    #myAssignmentsModal {
+        display: block !important;
+        position: static !important;
+        background: white !important;
+    }
+    
+    #myAssignmentsModal .modal-content {
+        box-shadow: none !important;
+        max-width: 100% !important;
     }
 }
 
