@@ -493,6 +493,30 @@ app.put('/api/admin/areas/:id/supervision-count', requireAdminAuth, async (req, 
     }
 });
 
+// Reset all supervisions endpoint
+app.delete('/api/admin/reset-supervisions', requireAdminAuth, async (req, res) => {
+    try {
+        console.log('Admin requested to reset all supervisions');
+        
+        // Delete all supervision assignments
+        const result = await database.run('DELETE FROM supervision_assignments');
+        
+        console.log(`Deleted ${result.changes} supervision assignments`);
+        
+        // Emit real-time update to all connected clients
+        io.emit('supervisionsReset', { message: 'All supervisions have been reset' });
+        
+        res.json({ 
+            success: true, 
+            message: `Successfully reset all supervisions (${result.changes} assignments removed)`,
+            deletedCount: result.changes
+        });
+    } catch (error) {
+        console.error('Error resetting supervisions:', error);
+        res.status(500).json({ error: 'Failed to reset supervisions' });
+    }
+});
+
 // Serve admin page
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
