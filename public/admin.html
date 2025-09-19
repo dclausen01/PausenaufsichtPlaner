@@ -7,123 +7,47 @@
     <link rel="stylesheet" href="css/style.css">
     <style>
         .admin-container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }
         
-        .admin-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        .admin-header {
+            background: none;
+            padding: 0;
+            box-shadow: none;
+            color: #333;
             margin-bottom: 2rem;
-            overflow: hidden;
         }
         
-        .admin-section-header {
-            background: #1976d2;
-            color: white;
-            padding: 1rem 1.5rem;
-            font-size: 1.2rem;
-            font-weight: 500;
+        .admin-header h1 {
+            margin-bottom: 1rem;
         }
         
-        .admin-section-content {
-            padding: 1rem;
-        }
-        
-        .export-form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            align-items: end;
-        }
-        
-        .form-field {
+        .admin-header-controls {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
         }
         
-        .form-field label {
-            margin-bottom: 0.5rem;
+        .location-selector {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .location-selector label {
             font-weight: 500;
             color: #333;
         }
         
-        .form-field input,
-        .form-field select {
-            padding: 0.75rem;
+        .location-selector select {
+            padding: 0.5rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 1rem;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .stat-card {
-            background: #f8f9fa;
-            padding: 0.75rem;
-            border-radius: 6px;
-            text-align: center;
-            border-left: 4px solid #1976d2;
-        }
-        
-        .stat-number {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #1976d2;
-            margin-bottom: 0.25rem;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .teacher-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .teacher-item {
-            padding: 0.5rem;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .teacher-item:last-child {
-            border-bottom: none;
-        }
-        
-        .teacher-info {
-            flex: 1;
-        }
-        
-        .teacher-name {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-        
-        .teacher-full-name {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
-        .assignment-count {
-            background: #e3f2fd;
-            color: #1976d2;
-            padding: 0.25rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 500;
+            background: white;
         }
         
         .back-link {
@@ -145,132 +69,367 @@
             font-size: 1.2rem;
         }
         
-        .area-config-list {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-height: 400px;
-            overflow-y: auto;
+        .supervision-area {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
         }
         
-        .area-config-item {
-            padding: 1rem;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .area-config-item:last-child {
-            border-bottom: none;
-        }
-        
-        .area-info {
-            flex: 1;
-        }
-        
-        .area-name {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-        
-        .area-location {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
-        .area-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .supervision-count-input {
-            width: 60px;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-align: center;
-            font-size: 1rem;
-        }
-        
-        .update-btn {
-            background: #4caf50;
+        .area-header {
+            background: #1976d2;
             color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        
-        .update-btn:hover {
-            background: #45a049;
-        }
-        
-        .update-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .current-count {
-            background: #e3f2fd;
-            color: #1976d2;
-            padding: 0.25rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
+            padding: 1rem 1.5rem;
+            font-size: 1.2rem;
             font-weight: 500;
-            margin-right: 0.5rem;
         }
         
-        .timeslot-matrix {
-            overflow-x: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        .area-header.location-eckernfoerde {
+            background: #d32f2f;
         }
         
-        .matrix-table {
+        .supervision-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 600px;
         }
         
-        .matrix-table th,
-        .matrix-table td {
+        .supervision-table th,
+        .supervision-table td {
             padding: 0.75rem;
             text-align: center;
             border: 1px solid #ddd;
         }
         
-        .matrix-table th {
+        .supervision-table th {
             background: #f8f9fa;
             font-weight: 600;
             color: #333;
         }
         
-        .matrix-table .area-header {
+        .supervision-table .day-header {
             background: #e9ecef;
             font-weight: 500;
             text-align: left;
             padding-left: 1rem;
         }
         
-        .matrix-table .location-rendsburg {
-            border-left: 4px solid #1976d2;
+        .supervision-slot {
+            min-width: 120px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 2px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
         }
         
-        .matrix-table .location-eckernfoerde {
-            border-left: 4px solid #d32f2f;
+        .supervision-slot.empty {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px dashed #ccc;
+        }
+        
+        .supervision-slot.filled {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+        
+        .supervision-slot:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .supervision-slot.updating {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .multiple-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .modal-header h2,
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .assignment-info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        
+        .assignment-info p {
+            margin: 0.5rem 0;
+        }
+        
+        .teacher-search {
+            margin-bottom: 1rem;
+        }
+        
+        .teacher-search input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .teacher-results {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+        
+        .teacher-result {
+            padding: 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .teacher-result:last-child {
+            border-bottom: none;
+        }
+        
+        .teacher-result:hover {
+            background: #f5f5f5;
+        }
+        
+        .teacher-result.selected {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .teacher-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .teacher-full-name {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+        
+        .btn-primary {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-primary:hover {
+            background: #1565c0;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .error-message {
+            color: #f44336;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        /* Status messages */
+        #statusMessages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+        }
+        
+        .status-message {
+            background: white;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #4caf50;
+            max-width: 300px;
+        }
+        
+        .status-message.error {
+            border-left-color: #f44336;
+        }
+        
+        .status-message.warning {
+            border-left-color: #ff9800;
+        }
+        
+        /* Availability Matrix Styles */
+        .availability-matrix {
+            overflow-x: auto;
+        }
+        
+        .availability-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .availability-table th,
+        .availability-table td {
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid #ddd;
+            font-size: 0.9rem;
+        }
+        
+        .availability-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .availability-table .area-name {
+            background: #e9ecef;
+            font-weight: 500;
+            text-align: left;
+            padding-left: 1rem;
+            min-width: 120px;
         }
         
         .availability-checkbox {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             cursor: pointer;
-            transform: scale(1.2);
+            margin: 0;
         }
         
         .availability-cell {
-            background: white;
+            background: #fff;
             transition: background-color 0.2s;
         }
         
@@ -278,53 +437,48 @@
             background: #f5f5f5;
         }
         
-        .availability-cell.disabled {
-            background: #ffebee;
-        }
-        
-        .availability-cell.enabled {
+        .availability-cell.available {
             background: #e8f5e8;
         }
         
-        .matrix-actions {
-            margin-top: 1rem;
+        .availability-cell.unavailable {
+            background: #ffebee;
+        }
+        
+        .area-header {
             display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
         }
         
-        .bulk-action-btn {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        
-        .bulk-action-btn:hover {
-            background: #5a6268;
-        }
-        
-        .save-availability-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 1rem;
-        }
-        
-        .save-availability-btn:hover {
-            background: #218838;
-        }
-        
-        .save-availability-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: 1rem;
+            }
+            
+            .supervision-table {
+                font-size: 0.8rem;
+            }
+            
+            .supervision-slot {
+                min-width: 80px;
+                min-height: 35px;
+                font-size: 0.8rem;
+            }
+            
+            .modal-content {
+                padding: 1rem;
+            }
+            
+            .availability-table {
+                font-size: 0.8rem;
+            }
+            
+            .availability-table th,
+            .availability-table td {
+                padding: 0.25rem;
+            }
         }
     </style>
 </head>
@@ -339,7 +493,7 @@
                     <input type="password" id="password" name="password" required>
                 </div>
                 <input type="hidden" id="isAdmin" value="true">
-                <button type="submit">Anmelden</button>
+                <button type="submit" class="btn-primary">Anmelden</button>
                 <div id="loginError" class="error-message"></div>
             </form>
         </div>
@@ -350,123 +504,92 @@
         <div class="admin-container">
             <a href="/" class="back-link">Zurück zur Hauptansicht</a>
             
-            <header style="background: none; padding: 0; box-shadow: none; color: #333; margin-bottom: 2rem;">
+            <header class="admin-header">
                 <h1>Admin-Panel - Pausenaufsicht Planer</h1>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
-                    <span id="userInfo">Admin-Modus</span>
-                    <button id="logoutBtn" style="background: #f44336; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
-                        Abmelden
-                    </button>
+                <div class="admin-header-controls">
+                    <div class="location-selector">
+                        <label for="locationSelect">Standort:</label>
+                        <select id="locationSelect">
+                            <option value="Rendsburg">Rendsburg</option>
+                            <option value="Eckernförde">Eckernförde</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span id="userInfo">Admin-Modus</span>
+                        <button id="logoutBtn" class="btn-danger">Abmelden</button>
+                    </div>
                 </div>
             </header>
 
-            <!-- Statistics Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    Statistiken
-                </div>
-                <div class="admin-section-content">
-                    <div class="stats-grid" id="statsGrid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="totalTeachers">-</div>
-                            <div class="stat-label">Lehrkräfte</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="totalAreas">-</div>
-                            <div class="stat-label">Aufsichtsbereiche</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="totalAssignments">-</div>
-                            <div class="stat-label">Zuweisungen (30 Tage)</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="emptySlots">-</div>
-                            <div class="stat-label">Offene Aufsichten (30 Tage)</div>
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="loading">Lade Aufsichtspläne...</div>
+
+            <!-- Admin Configuration Section -->
+            <div id="configSection" class="hidden" style="margin-bottom: 2rem;">
+                <div class="supervision-area">
+                    <div class="area-header">
+                        <span>Zeitslot-Verfügbarkeit konfigurieren</span>
+                        <button id="toggleConfigBtn" class="btn-secondary" style="margin-left: auto; padding: 0.5rem 1rem;">
+                            Konfiguration anzeigen
+                        </button>
+                    </div>
+                    <div id="configContent" class="hidden" style="padding: 1rem;">
+                        <p style="margin-bottom: 1rem; color: #666;">
+                            Hier können Sie festlegen, welche Zeitslots für welche Aufsichtsbereiche verfügbar sind. 
+                            Nicht verfügbare Kombinationen werden in der Planung ausgeblendet.
+                        </p>
+                        <div id="availabilityMatrix">
+                            <!-- Availability matrix will be inserted here -->
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Export Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    CSV-Export & Viewer
-                </div>
-                <div class="admin-section-content">
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-                        <button id="exportBtn" class="btn-primary">CSV herunterladen (8 Wochen)</button>
-                        <a href="/viewer" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; padding: 0.75rem 1.5rem; background: #4caf50; color: white; border-radius: 4px; font-weight: 500;">
-                            📊 CSV-Viewer öffnen
-                        </a>
-                    </div>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                        <strong>CSV herunterladen:</strong> Exportiert alle Aufsichtszuweisungen für die nächsten 8 Wochen als CSV-Datei.<br>
-                        <strong>CSV-Viewer:</strong> Öffnet das integrierte Tool zur übersichtlichen Darstellung und Analyse von CSV-Dateien.
-                    </p>
-                </div>
+            <!-- Supervision Areas Container -->
+            <div id="supervisionContainer" class="hidden">
+                <!-- Areas will be dynamically inserted here -->
             </div>
+        </div>
 
-            <!-- Teacher Overview Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    Lehrkräfte-Übersicht (8 Wochen)
+        <!-- Teacher Selection Modal -->
+        <div id="teacherModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Lehrkraft zuweisen</h3>
+                    <button class="close-btn" id="closeTeacherModal">&times;</button>
                 </div>
-                <div class="admin-section-content">
-                    <div id="teacherList" class="teacher-list">
-                        <div style="padding: 2rem; text-align: center; color: #666;">
-                            Lade Lehrkräfte...
-                        </div>
+                <div class="modal-body">
+                    <div class="assignment-info">
+                        <p><strong>Bereich:</strong> <span id="modalAreaName"></span></p>
+                        <p><strong>Zeit:</strong> <span id="modalTimeSlot"></span></p>
+                        <p><strong>Tag:</strong> <span id="modalDay"></span></p>
+                        <p><strong>Aufsicht:</strong> <span id="modalSupervisionNumber"></span></p>
                     </div>
-                </div>
-            </div>
-
-            <!-- Area Configuration Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    Aufsichtsbereiche konfigurieren
-                </div>
-                <div class="admin-section-content">
-                    <p style="margin-bottom: 1rem; color: #666;">
-                        Hier können Sie die Anzahl der benötigten Aufsichtspersonen pro Bereich anpassen.
-                    </p>
-                    <div id="areaConfigList" class="area-config-list">
-                        <div style="padding: 2rem; text-align: center; color: #666;">
-                            Lade Aufsichtsbereiche...
-                        </div>
+                    <div class="teacher-search">
+                        <input type="text" id="teacherSearch" placeholder="Lehrkraft suchen...">
+                        <div id="teacherResults" class="teacher-results"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmAssignment" class="btn-primary" disabled>Zuweisen</button>
+                        <button id="cancelAssignment" class="btn-secondary">Abbrechen</button>
+                        <button id="removeAssignment" class="btn-danger hidden">Entfernen</button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Timeslot Availability Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    Zeitslot-Verfügbarkeit verwalten
+        <!-- Confirmation Modal -->
+        <div id="confirmModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Bestätigung erforderlich</h3>
                 </div>
-                <div class="admin-section-content">
-                    <p style="margin-bottom: 1rem; color: #666;">
-                        Bestimmen Sie, welche Zeitslots für welche Aufsichtsbereiche verfügbar sind. Deaktivierte Kombinationen werden nicht in der Benutzeroberfläche angezeigt.
-                    </p>
-                    <div id="timeslotAvailabilityMatrix" class="timeslot-matrix">
-                        <div style="padding: 2rem; text-align: center; color: #666;">
-                            Lade Zeitslot-Verfügbarkeit...
-                        </div>
+                <div class="modal-body">
+                    <p id="confirmMessage"></p>
+                    <div class="modal-actions">
+                        <button id="confirmYes" class="btn-primary">Ja</button>
+                        <button id="confirmNo" class="btn-secondary">Nein</button>
                     </div>
-                    <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
-                        <strong>Hinweis:</strong> Beim Deaktivieren einer Kombination werden alle bestehenden Zuweisungen für diesen Bereich und Zeitslot automatisch entfernt.
-                    </div>
-                </div>
-            </div>
-
-            <!-- Schedule Editor Section -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    Aufsichtsplan bearbeiten
-                </div>
-                <div class="admin-section-content">
-                    <p style="margin-bottom: 1rem; color: #666;">
-                        Als Admin können Sie alle Aufsichten bearbeiten. Plausibilitätsprüfungen sind aktiv, aber bereits vergebene Aufsichten können ohne Rückfrage geändert werden.
-                    </p>
-                    <button type="button" id="openScheduleEditor" class="btn-primary">Aufsichtsplan öffnen</button>
                 </div>
             </div>
         </div>
@@ -476,6 +599,8 @@
     </div>
 
     <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/websocket.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>

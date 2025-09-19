@@ -223,6 +223,67 @@ app.get('/api/time-slots', requireAuth, async (req, res) => {
     }
 });
 
+// Area-Timeslot Availability API
+app.get('/api/availability', requireAuth, async (req, res) => {
+    try {
+        const availability = await database.query(`
+            SELECT ata.*, a.name as area_name, a.location, ts.display_name as time_slot_name
+            FROM area_timeslot_availability ata
+            JOIN areas a ON ata.area_id = a.id
+            JOIN time_slots ts ON ata.time_slot_id = ts.id
+            ORDER BY a.location, a.name, ts.sort_order
+        `);
+        res.json(availability);
+    } catch (error) {
+        console.error('Error getting availability:', error);
+        res.status(500).json({ error: 'Failed to get availability' });
+    }
+});
+
+app.put('/api/availability/:areaId/:timeSlotId', requireAdminAuth, async (req, res) => {
+    try {
+        const { areaId, timeSlotId } = req.params;
+        const { isAvailable } = req.body;
+        
+        if (typeof isAvailable !== 'boolean') {
+            return res.status(400).json({ error: 'isAvailable must be a boolean' });
+        }
+        
+        const result = await database.run(
+            `UPDATE area_timeslot_availability 
+             SET is_available = ?, updated_at = CURRENT_TIMESTAMP 
+             WHERE area_id = ? AND time_slot_id = ?`,
+            [isAvailable ? 1 : 0, areaId, timeSlotId]
+        );
+        
+        if (result.changes === 0) {
+            // If no rows were updated, try to insert a new record
+            await database.run(
+                `INSERT INTO area_timeslot_availability (area_id, time_slot_id, is_available) 
+                 VALUES (?, ?, ?)`,
+                [areaId, timeSlotId, isAvailable ? 1 : 0]
+            );
+        }
+        
+        // Get updated availability record
+        const updated = await database.query(`
+            SELECT ata.*, a.name as area_name, a.location, ts.display_name as time_slot_name
+            FROM area_timeslot_availability ata
+            JOIN areas a ON ata.area_id = a.id
+            JOIN time_slots ts ON ata.time_slot_id = ts.id
+            WHERE ata.area_id = ? AND ata.time_slot_id = ?
+        `, [areaId, timeSlotId]);
+        
+        // Emit real-time update
+        io.emit('availabilityUpdated', updated[0]);
+        
+        res.json(updated[0]);
+    } catch (error) {
+        console.error('Error updating availability:', error);
+        res.status(500).json({ error: 'Failed to update availability' });
+    }
+});
+
 // Assignments API
 app.get('/api/assignments/schedule', requireAuth, async (req, res) => {
     try {
@@ -338,173 +399,6 @@ app.delete('/api/assignments/:id', requireAuth, requireTeacherSelection, async (
     }
 });
 
-// Admin routes
-app.get('/api/admin/export-csv', requireAdminAuth, async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
-        
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'Start date and end date are required' });
-        }
-        
-        const assignments = await Assignment.getByDateRange(startDate, endDate);
-        
-        // Create CSV content with German headers and semicolon separation (compatible with CSV viewer)
-        let csv = 'Datum;Zeitslot;Bereich;Lehrkraft;Aufsicht Nr.\n';
-        assignments.forEach(assignment => {
-            csv += `${assignment.date};${assignment.time_slot_display};${assignment.area_name};${assignment.teacher_name};${assignment.supervision_number}\n`;
-        });
-        
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="pausenaufsicht-${startDate}-bis-${endDate}.csv"`);
-        res.send(csv);
-    } catch (error) {
-        console.error('Error exporting CSV:', error);
-        res.status(500).json({ error: 'Failed to export CSV' });
-    }
-});
-
-// API route to get CSV data for direct viewer integration
-app.get('/api/admin/csv-data', requireAdminAuth, async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
-        
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'Start date and end date are required' });
-        }
-        
-        const assignments = await Assignment.getByDateRange(startDate, endDate);
-        
-        // Create CSV content with German headers and semicolon separation
-        let csvContent = 'Datum;Zeitslot;Bereich;Lehrkraft;Aufsicht Nr.\n';
-        assignments.forEach(assignment => {
-            csvContent += `${assignment.date};${assignment.time_slot_display};${assignment.area_name};${assignment.teacher_name};${assignment.supervision_number}\n`;
-        });
-        
-        // Return as JSON with CSV content and metadata
-        res.json({
-            csvContent: csvContent,
-            filename: `pausenaufsicht-${startDate}-bis-${endDate}.csv`,
-            recordCount: assignments.length,
-            dateRange: { startDate, endDate }
-        });
-    } catch (error) {
-        console.error('Error getting CSV data:', error);
-        res.status(500).json({ error: 'Failed to get CSV data' });
-    }
-});
-
-// Area-timeslot availability management routes
-app.get('/api/admin/area-timeslot-availability', requireAdminAuth, async (req, res) => {
-    try {
-        const availability = await database.query(`
-            SELECT 
-                ata.id,
-                ata.area_id,
-                ata.time_slot_id,
-                ata.is_available,
-                a.name as area_name,
-                a.location as area_location,
-                ts.display_name as time_slot_name,
-                ts.sort_order as time_slot_order
-            FROM area_timeslot_availability ata
-            JOIN areas a ON ata.area_id = a.id
-            JOIN time_slots ts ON ata.time_slot_id = ts.id
-            ORDER BY a.location, a.name, ts.sort_order
-        `);
-        
-        res.json(availability);
-    } catch (error) {
-        console.error('Error getting area-timeslot availability:', error);
-        res.status(500).json({ error: 'Failed to get availability data' });
-    }
-});
-
-app.put('/api/admin/area-timeslot-availability', requireAdminAuth, async (req, res) => {
-    try {
-        const { areaId, timeSlotId, isAvailable } = req.body;
-        
-        if (!areaId || !timeSlotId || typeof isAvailable !== 'boolean') {
-            return res.status(400).json({ error: 'Area ID, time slot ID, and availability status are required' });
-        }
-        
-        // If disabling availability, check for existing assignments
-        let conflictingAssignments = [];
-        if (!isAvailable) {
-            conflictingAssignments = await database.query(`
-                SELECT 
-                    sa.id,
-                    sa.date,
-                    sa.supervision_number,
-                    t.name as teacher_name,
-                    a.name as area_name,
-                    ts.display_name as time_slot_name
-                FROM supervision_assignments sa
-                JOIN teachers t ON sa.teacher_id = t.id
-                JOIN areas a ON sa.area_id = a.id
-                JOIN time_slots ts ON sa.time_slot_id = ts.id
-                WHERE sa.area_id = ? AND sa.time_slot_id = ?
-            `, [areaId, timeSlotId]);
-        }
-        
-        // Update availability
-        await database.run(`
-            UPDATE area_timeslot_availability 
-            SET is_available = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE area_id = ? AND time_slot_id = ?
-        `, [isAvailable ? 1 : 0, areaId, timeSlotId]);
-        
-        // If disabling and there are conflicting assignments, remove them
-        if (!isAvailable && conflictingAssignments.length > 0) {
-            await database.run(`
-                DELETE FROM supervision_assignments 
-                WHERE area_id = ? AND time_slot_id = ?
-            `, [areaId, timeSlotId]);
-            
-            console.log(`Removed ${conflictingAssignments.length} conflicting assignments for area ${areaId}, time slot ${timeSlotId}`);
-        }
-        
-        res.json({
-            success: true,
-            message: 'Availability updated successfully',
-            removedAssignments: conflictingAssignments.length
-        });
-    } catch (error) {
-        console.error('Error updating area-timeslot availability:', error);
-        res.status(500).json({ error: 'Failed to update availability' });
-    }
-});
-
-app.get('/api/admin/conflicting-assignments', requireAdminAuth, async (req, res) => {
-    try {
-        const { areaId, timeSlotId } = req.query;
-        
-        if (!areaId || !timeSlotId) {
-            return res.status(400).json({ error: 'Area ID and time slot ID are required' });
-        }
-        
-        const assignments = await database.query(`
-            SELECT 
-                sa.id,
-                sa.date,
-                sa.supervision_number,
-                t.name as teacher_name,
-                a.name as area_name,
-                ts.display_name as time_slot_name
-            FROM supervision_assignments sa
-            JOIN teachers t ON sa.teacher_id = t.id
-            JOIN areas a ON sa.area_id = a.id
-            JOIN time_slots ts ON sa.time_slot_id = ts.id
-            WHERE sa.area_id = ? AND sa.time_slot_id = ?
-            ORDER BY sa.date, sa.supervision_number
-        `, [areaId, timeSlotId]);
-        
-        res.json(assignments);
-    } catch (error) {
-        console.error('Error getting conflicting assignments:', error);
-        res.status(500).json({ error: 'Failed to get conflicting assignments' });
-    }
-});
 
 // Socket.IO for real-time updates
 io.on('connection', (socket) => {
@@ -604,13 +498,6 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Serve CSV viewer static files BEFORE the HTML route
-app.use('/viewer', express.static(path.join(__dirname, 'csv-viewer')));
-
-// Serve CSV viewer HTML (this will be the fallback for /viewer)
-app.get('/viewer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'csv-viewer', 'index.html'));
-});
 
 // Initialize database and start server
 async function startServer() {
@@ -643,7 +530,6 @@ async function startServer() {
             console.log(`Server running on port ${PORT}`);
             console.log(`Main interface: http://localhost:${PORT}`);
             console.log(`Admin interface: http://localhost:${PORT}/admin`);
-            console.log(`CSV Viewer: http://localhost:${PORT}/viewer`);
         });
     } catch (error) {
         console.error('Failed to start server:', error);

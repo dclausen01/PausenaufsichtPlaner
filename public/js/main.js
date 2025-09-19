@@ -13,6 +13,7 @@ class PausenaufsichtApp {
         this.selectedTeacher = null;
         this.currentAssignmentContext = null;
         this.currentLocation = 'Rendsburg';
+        this.availabilitySettings = new Map(); // Store area-timeslot availability settings
         
         this.init();
     }
@@ -217,16 +218,21 @@ class PausenaufsichtApp {
 
     async loadInitialData() {
         try {
-            // Load teachers, areas, and time slots
-            const [teachersResponse, areasResponse, timeSlotsResponse] = await Promise.all([
+            // Load teachers, areas, time slots, and availability settings
+            const [teachersResponse, areasResponse, timeSlotsResponse, availabilityResponse] = await Promise.all([
                 fetch('/api/teachers'),
                 fetch('/api/areas'),
-                fetch('/api/time-slots')
+                fetch('/api/time-slots'),
+                fetch('/api/availability')
             ]);
 
             this.teachers = await teachersResponse.json();
             this.areas = await areasResponse.json();
             this.timeSlots = await timeSlotsResponse.json();
+            
+            // Load availability settings
+            const availabilityData = await availabilityResponse.json();
+            this.loadAvailabilitySettings(availabilityData);
 
             // Load initial schedule
             await this.loadSchedule();
@@ -234,6 +240,17 @@ class PausenaufsichtApp {
             console.error('Error loading initial data:', error);
             this.showStatusMessage('Fehler beim Laden der Daten', 'error');
         }
+    }
+
+    loadAvailabilitySettings(availabilityData) {
+        // Clear existing settings
+        this.availabilitySettings.clear();
+        
+        // Load availability settings into Map for quick lookup
+        availabilityData.forEach(item => {
+            const key = `${item.area_id}-${item.time_slot_id}`;
+            this.availabilitySettings.set(key, item.is_available === 1);
+        });
     }
 
     async loadSchedule() {
@@ -1033,17 +1050,9 @@ class PausenaufsichtApp {
     }
 
     isAreaTimeSlotAvailable(areaId, timeSlotId) {
-        // Check if this area-timeslot combination exists in the schedule matrix
-        // If it doesn't exist, it means it's not available
-        if (!this.currentSchedule || !this.currentSchedule.dates.length) {
-            return true; // Default to available if no schedule data
-        }
-        
-        // Check any date to see if this combination exists
-        const sampleDate = this.currentSchedule.dates[0];
-        return this.currentSchedule.assignments[sampleDate] &&
-               this.currentSchedule.assignments[sampleDate][areaId] &&
-               this.currentSchedule.assignments[sampleDate][areaId].hasOwnProperty(timeSlotId);
+        const key = `${areaId}-${timeSlotId}`;
+        // If no availability data exists, default to available (true)
+        return this.availabilitySettings.has(key) ? this.availabilitySettings.get(key) : true;
     }
 
     createTemplateDayRow(area, day, sampleDate, dayOffset) {
