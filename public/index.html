@@ -37,6 +37,7 @@
                 </div>
                 <div class="user-controls">
                     <span id="userInfo"></span>
+                    <button id="myAssignmentsBtn" class="btn-secondary">Meine Aufsichten</button>
                     <button id="logoutBtn">Abmelden</button>
                 </div>
             </div>
@@ -113,6 +114,36 @@
 
         <!-- Status Messages -->
         <div id="statusMessages"></div>
+
+        <!-- My Assignments Modal -->
+        <div id="myAssignmentsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Meine Aufsichten</h3>
+                    <button class="close-btn" id="closeMyAssignmentsModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="print-controls">
+                        <button id="printAssignmentsBtn" class="btn-primary">Drucken</button>
+                    </div>
+                    <div id="myAssignmentsContent">
+                        <table id="myAssignmentsTable" class="assignments-table">
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Ort</th>
+                                    <th>Zeit</th>
+                                    <th>Bereich</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Assignments will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->

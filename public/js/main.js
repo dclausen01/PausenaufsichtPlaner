@@ -124,6 +124,19 @@ class PausenaufsichtApp {
             this.confirmTeacherSelection();
         });
 
+        // My Assignments modal events
+        document.getElementById('myAssignmentsBtn').addEventListener('click', () => {
+            this.showMyAssignments();
+        });
+
+        document.getElementById('closeMyAssignmentsModal').addEventListener('click', () => {
+            this.hideMyAssignmentsModal();
+        });
+
+        document.getElementById('printAssignmentsBtn').addEventListener('click', () => {
+            this.printAssignments();
+        });
+
         // Close modals when clicking outside
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -1401,6 +1414,152 @@ class PausenaufsichtApp {
             console.error('Error confirming teacher selection:', error);
             this.showStatusMessage('Verbindungsfehler', 'error');
         }
+    }
+
+    // My Assignments Modal Methods
+    async showMyAssignments() {
+        if (!this.selectedTeacherId) {
+            this.showStatusMessage('Bitte wählen Sie zuerst Ihr Lehrerkürzel aus', 'error');
+            return;
+        }
+
+        // Show loading state
+        const modal = document.getElementById('myAssignmentsModal');
+        const tableBody = document.getElementById('myAssignmentsTable').querySelector('tbody');
+        tableBody.innerHTML = '<tr><td colspan="4">Lade Aufsichten...</td></tr>';
+        modal.classList.remove('hidden');
+
+        try {
+            // Use the same date range as the main schedule
+            const startDate = this.startDate;
+            const endDate = this.endDate;
+
+            const response = await fetch(`/api/assignments/my-assignments?startDate=${startDate}&endDate=${endDate}`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to load assignments');
+            }
+
+            const assignments = await response.json();
+            this.renderMyAssignments(assignments);
+        } catch (error) {
+            console.error('Error loading assignments:', error);
+            tableBody.innerHTML = '<tr><td colspan="4">Fehler beim Laden der Aufsichten</td></tr>';
+            this.showStatusMessage('Fehler beim Laden der Aufsichten', 'error');
+        }
+    }
+
+    renderMyAssignments(assignments) {
+        const tableBody = document.getElementById('myAssignmentsTable').querySelector('tbody');
+        
+        if (assignments.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4">Keine Aufsichten gefunden</td></tr>';
+            return;
+        }
+
+        // Sort assignments by date
+        assignments.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Group assignments by date for better organization
+        const assignmentsByDate = {};
+        assignments.forEach(assignment => {
+            if (!assignmentsByDate[assignment.date]) {
+                assignmentsByDate[assignment.date] = [];
+            }
+            assignmentsByDate[assignment.date].push(assignment);
+        });
+
+        // Render assignments
+        let html = '';
+        Object.keys(assignmentsByDate).forEach(date => {
+            const dateAssignments = assignmentsByDate[date];
+            const dateObj = new Date(date);
+            const dateStr = dateObj.toLocaleDateString('de-DE', { 
+                weekday: 'long'
+            });
+            
+            dateAssignments.forEach(assignment => {
+                // Find area and time slot info
+                const area = this.areas.find(a => a.id === assignment.area_id);
+                const timeSlot = this.timeSlots.find(ts => ts.id === assignment.time_slot_id);
+                
+                html += `
+                    <tr>
+                        <td>${dateStr}</td>
+                        <td>${area ? area.name : 'Unbekannt'}</td>
+                        <td>${timeSlot ? timeSlot.display_name : 'Unbekannt'}</td>
+                        <td>${assignment.supervision_number}. Aufsicht</td>
+                    </tr>
+                `;
+            });
+        });
+        
+        tableBody.innerHTML = html;
+    }
+
+    hideMyAssignmentsModal() {
+        document.getElementById('myAssignmentsModal').classList.add('hidden');
+    }
+
+    printAssignments() {
+        // Get the modal content
+        const modalContent = document.querySelector('#myAssignmentsModal .modal-content');
+        const originalDisplay = modalContent.style.display;
+        
+        // Temporarily modify for printing
+        modalContent.style.display = 'block';
+        
+        // Create a new window for printing
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Meine Aufsichten</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 20px;
+                        }
+                        h3 {
+                            text-align: center;
+                            margin-bottom: 20px;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 20px;
+                        }
+                        th, td {
+                            border: 1px solid #ddd;
+                            padding: 8px;
+                            text-align: left;
+                        }
+                        th {
+                            background-color: #f2f2f2;
+                        }
+                        @media print {
+                            body {
+                                font-size: 12px;
+                            }
+                            th, td {
+                                padding: 4px;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h3>Meine Aufsichten - ${this.selectedTeacherInfo ? this.selectedTeacherInfo.name : ''}</h3>
+                    ${document.getElementById('myAssignmentsContent').innerHTML}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+        
+        // Restore original display
+        modalContent.style.display = originalDisplay;
     }
 }
 
