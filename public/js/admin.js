@@ -137,6 +137,11 @@ class AdminApp {
         document.getElementById('resetSupervisionBtn').addEventListener('click', () => {
             this.handleResetSupervisions();
         });
+
+        // Statistik-Übersicht (Aufsichten pro Lehrkraft)
+        document.getElementById('toggleStatsBtn').addEventListener('click', () => {
+            this.toggleStatsSection();
+        });
     }
 
     async handleLogin() {
@@ -851,7 +856,93 @@ class AdminApp {
 
     showConfigSection() {
         document.getElementById('configSection').classList.remove('hidden');
+        document.getElementById('statsSection').classList.remove('hidden');
         this.renderAvailabilityMatrix();
+    }
+
+    // Wochenbereich der aktuellen Vorlage (Montag bis Freitag) — gleiche
+    // Logik wie loadTemplateAssignments
+    getTemplateWeekRange() {
+        const today = new Date();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - today.getDay() + 1);
+        const friday = new Date(monday);
+        friday.setDate(monday.getDate() + 4);
+        return {
+            startDate: monday.toISOString().split('T')[0],
+            endDate: friday.toISOString().split('T')[0]
+        };
+    }
+
+    toggleStatsSection() {
+        const statsContent = document.getElementById('statsContent');
+        const toggleBtn = document.getElementById('toggleStatsBtn');
+
+        if (statsContent.classList.contains('hidden')) {
+            statsContent.classList.remove('hidden');
+            toggleBtn.textContent = 'Übersicht ausblenden';
+            this.loadTeacherStats();
+        } else {
+            statsContent.classList.add('hidden');
+            toggleBtn.textContent = 'Übersicht anzeigen';
+        }
+    }
+
+    async loadTeacherStats() {
+        const tableBody = document.getElementById('statsTable').querySelector('tbody');
+        const summary = document.getElementById('statsSummary');
+        tableBody.innerHTML = '<tr><td colspan="3">Lade Übersicht...</td></tr>';
+        summary.textContent = '';
+
+        try {
+            const { startDate, endDate } = this.getTemplateWeekRange();
+            const response = await fetch(`/api/admin/teacher-stats?startDate=${startDate}&endDate=${endDate}`);
+
+            if (!response.ok) {
+                throw new Error('Failed to load teacher stats');
+            }
+
+            const stats = await response.json();
+            this.renderTeacherStats(stats);
+        } catch (error) {
+            console.error('Error loading teacher stats:', error);
+            tableBody.innerHTML = '<tr><td colspan="3">Fehler beim Laden der Übersicht</td></tr>';
+        }
+    }
+
+    renderTeacherStats(stats) {
+        const tableBody = document.getElementById('statsTable').querySelector('tbody');
+        const summary = document.getElementById('statsSummary');
+
+        if (stats.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="3">Keine Lehrkräfte vorhanden</td></tr>';
+            return;
+        }
+
+        const withoutAssignment = stats.filter(s => s.assignment_count === 0).length;
+        summary.textContent = `${stats.length} Lehrkräfte insgesamt, davon ${withoutAssignment} ohne Aufsicht in der Wochenvorlage`;
+
+        let html = '';
+        stats.forEach(stat => {
+            // Vollständigen Namen aus den bereits geladenen Lehrkräften ergänzen
+            const teacher = this.teachers.find(t => t.id === stat.id);
+            const fullName = teacher
+                ? `${teacher.foreName || ''} ${teacher.longName || ''}`.trim()
+                : '';
+            const highlight = stat.assignment_count === 0
+                ? ' style="background: #fdf2f2; color: #c0392b; font-weight: 600;"'
+                : '';
+
+            html += `
+                <tr${highlight}>
+                    <td>${AdminApp.escapeHtml(stat.name)}</td>
+                    <td>${AdminApp.escapeHtml(fullName)}</td>
+                    <td>${stat.assignment_count}</td>
+                </tr>
+            `;
+        });
+
+        tableBody.innerHTML = html;
     }
 
     toggleConfigSection() {

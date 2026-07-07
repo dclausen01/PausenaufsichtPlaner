@@ -550,6 +550,40 @@
                 </div>
             </div>
 
+            <!-- Aufsichten pro Lehrkraft (nur für Admins sichtbar) -->
+            <div id="statsSection" class="hidden" style="margin-bottom: 2rem;">
+                <div class="supervision-area">
+                    <div class="area-header">
+                        <span>Aufsichten pro Lehrkraft (Wochenvorlage)</span>
+                        <button id="toggleStatsBtn" class="btn-secondary" style="margin-left: auto; padding: 0.5rem 1rem;">
+                            Übersicht anzeigen
+                        </button>
+                    </div>
+                    <div id="statsContent" class="hidden" style="padding: 1rem;">
+                        <p style="margin-bottom: 1rem; color: #666;">
+                            Übersicht, wie viele Aufsichten jede Lehrkraft in der aktuellen
+                            Wochenvorlage übernommen hat. Diese Ansicht ist nur für
+                            Administratoren sichtbar.
+                        </p>
+                        <p id="statsSummary" style="margin-bottom: 1rem; font-weight: 600;"></p>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="supervision-table" id="statsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Kürzel</th>
+                                        <th>Name</th>
+                                        <th>Aufsichten</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Stats will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Supervision Areas Container -->
             <div id="supervisionContainer" class="hidden">
                 <!-- Areas will be dynamically inserted here -->

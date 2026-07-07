@@ -632,6 +632,33 @@ app.put('/api/admin/areas/:id/supervision-count', requireAdminAuth, async (req, 
     }
 });
 
+// Aufsichten pro Lehrkraft (nur Admin!): Diese Übersicht zeigt auch, wer
+// KEINE Aufsichten übernimmt — das kann persönliche Gründe haben (z. B.
+// Mutterschutz) und darf nicht im Kollegium sichtbar sein.
+app.get('/api/admin/teacher-stats', requireAdminAuth, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+
+        const stats = await database.query(`
+            SELECT t.id, t.name, COUNT(sa.id) as assignment_count
+            FROM teachers t
+            LEFT JOIN supervision_assignments sa
+                ON sa.teacher_id = t.id AND sa.date >= ? AND sa.date <= ?
+            GROUP BY t.id, t.name
+            ORDER BY assignment_count ASC, t.name COLLATE NOCASE
+        `, [startDate, endDate]);
+
+        res.json(stats);
+    } catch (error) {
+        console.error('Error getting teacher stats:', error);
+        res.status(500).json({ error: 'Failed to get teacher stats' });
+    }
+});
+
 // Reset all supervisions endpoint
 app.delete('/api/admin/reset-supervisions', requireAdminAuth, async (req, res) => {
     try {
