@@ -181,9 +181,8 @@ Die folgenden Bereiche sind vorkonfiguriert:
 
 ### Keine Lehrerdaten
 
-- Im LDAP-Modus werden Lehrkräfte beim ersten Login automatisch angelegt
-- Alt-Bestand kann weiterhin per `teacher.csv` importiert werden
-  (Format: `name;longName;foreName`, Semikolon-getrennt; Import läuft nur bei leerer Datenbank)
+- Lehrkräfte werden beim ersten LDAP-Login automatisch angelegt —
+  ein separater Import ist nicht mehr nötig
 
 ### WebSocket-Verbindung fehlgeschlagen
 

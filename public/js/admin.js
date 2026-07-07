@@ -1043,7 +1043,6 @@ class AdminApp {
                 this.renderSupervisionAreas();
                 
                 this.showStatusMessage(result.message, 'success');
-                console.log(`Reset completed: ${result.deletedCount} assignments removed`);
             } else {
                 const error = await response.json();
                 this.showStatusMessage(error.error || 'Fehler beim Zurücksetzen', 'error');

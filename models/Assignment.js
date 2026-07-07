@@ -10,14 +10,20 @@ class Assignment {
             }
 
             const result = await database.run(
-                `INSERT INTO supervision_assignments 
-                 (area_id, time_slot_id, date, teacher_id, supervision_number, updated_at) 
+                `INSERT INTO supervision_assignments
+                 (area_id, time_slot_id, date, teacher_id, supervision_number, updated_at)
                  VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
                 [areaId, timeSlotId, date, teacherId, supervisionNumber]
             );
 
             return await this.getById(result.id);
         } catch (error) {
+            // Tragen sich zwei Personen gleichzeitig ein, fängt der
+            // UNIQUE-Constraint das ab — als "bereits vergeben" melden (409),
+            // nicht als Serverfehler
+            if (error.code === 'SQLITE_CONSTRAINT') {
+                throw new Error('Assignment already exists for this slot');
+            }
             console.error('Error creating assignment:', error);
             throw error;
         }

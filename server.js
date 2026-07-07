@@ -6,7 +6,6 @@ const session = require('express-session');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 
 // Import our modules
@@ -412,16 +411,13 @@ app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection,
 
 app.post('/api/assignments', requireAuth, requireTeacherSelection, canModifyTeacherAssignment, async (req, res) => {
     try {
-        console.log('Creating assignment with data:', req.body);
         const { areaId, timeSlotId, date, teacherId, supervisionNumber } = req.body;
-        
+
         if (!areaId || !timeSlotId || !date || !teacherId) {
-            console.error('Missing required fields:', { areaId, timeSlotId, date, teacherId });
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
+
         const assignment = await Assignment.create(areaId, timeSlotId, date, teacherId, supervisionNumber);
-        console.log('Assignment created successfully:', assignment);
         
         // Emit real-time update
         io.emit('assignmentCreated', assignment);
@@ -523,8 +519,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// Debug endpoint
-app.get('/api/debug/info', requireAuth, async (req, res) => {
+// Debug endpoint (nur für Admins — gibt Interna preis)
+app.get('/api/debug/info', requireAdminAuth, async (req, res) => {
     try {
         const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
         const areaCount = await database.query('SELECT COUNT(*) as count FROM areas');
@@ -644,25 +640,10 @@ async function startServer() {
             console.error('Error updating database schema:', error);
         }
 
-        // Optionaler CSV-Import (nur noch als Alt-Bestand relevant — im
-        // LDAP-Modus werden Lehrkräfte beim ersten Login automatisch angelegt)
-        try {
-            const csvPath = './teacher.csv';
-            const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
-            if (teacherCount[0].count === 0 && fs.existsSync(csvPath)) {
-                console.log('Importing teachers from CSV...');
-                const imported = await Teacher.importFromCSV(csvPath);
-                console.log(`Successfully imported ${imported} teachers from CSV`);
-            } else if (teacherCount[0].count > 0) {
-                console.log(`Database already contains ${teacherCount[0].count} teachers`);
-            } else {
-                console.log('Keine teacher.csv vorhanden — Lehrkräfte werden beim ersten LDAP-Login angelegt');
-            }
-        } catch (error) {
-            console.error('Error importing teachers:', error);
-            console.error('CSV import failed, but server will continue...');
-        }
-        
+        const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
+        console.log(`Datenbank enthält ${teacherCount[0].count} Lehrkräfte (neue werden beim ersten LDAP-Login angelegt)`);
+
+
         server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`Main interface: http://localhost:${PORT}`);

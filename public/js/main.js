@@ -385,61 +385,6 @@ class PausenaufsichtApp {
         document.getElementById('scheduleContainer').classList.remove('hidden');
     }
 
-    createDayElement(date, filteredAreas) {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'schedule-day';
-
-        const dateObj = new Date(date);
-        const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'long' });
-        const dateStr = dateObj.toLocaleDateString('de-DE');
-
-        dayDiv.innerHTML = `
-            <div class="day-header" data-location="${this.currentLocation}">
-                <h3>${dayName}, ${dateStr}</h3>
-            </div>
-            <div class="day-content">
-                ${filteredAreas.map(area => this.createAreaSection(area, date)).join('')}
-            </div>
-        `;
-
-        return dayDiv;
-    }
-
-    createAreaSection(area, date) {
-        return `
-            <div class="area-section">
-                <div class="area-header" data-location="${area.location}">
-                    <h4>${area.name} (${area.supervision_count} Aufsicht${area.supervision_count > 1 ? 'en' : ''})</h4>
-                </div>
-                <div class="time-slots">
-                    ${this.currentSchedule.timeSlots.map(timeSlot => 
-                        this.createTimeSlotElement(area, timeSlot, date)
-                    ).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    createTimeSlotElement(area, timeSlot, date) {
-        const assignments = this.currentSchedule.assignments[date][area.id][timeSlot.id] || [];
-        
-        return `
-            <div class="time-slot">
-                <div class="time-slot-header">
-                    ${timeSlot.display_name}
-                </div>
-                <div class="supervision-slots">
-                    ${Array.from({ length: area.supervision_count }, (_, index) => {
-                        const supervisionNumber = index + 1;
-                        const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                        
-                        return this.createSupervisionSlot(area, timeSlot, date, supervisionNumber, assignment);
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }
-
     createSupervisionSlot(area, timeSlot, date, supervisionNumber, assignment) {
         const isEmpty = !assignment;
         const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
@@ -615,11 +560,8 @@ class PausenaufsichtApp {
     }
 
     selectTeacher(teacherId, clickedElement = null) {
-        console.log('selectTeacher called with:', { teacherId, clickedElement });
-        console.log('Available teachers:', this.teachers.length);
         
         this.selectedTeacher = this.teachers.find(t => t.id === teacherId);
-        console.log('Found teacher:', this.selectedTeacher);
         
         if (this.selectedTeacher) {
             document.getElementById('teacherSearch').value = this.selectedTeacher.name;
@@ -639,25 +581,19 @@ class PausenaufsichtApp {
                 clickedElement.classList.add('selected');
             }
             
-            console.log('Teacher selected successfully:', this.selectedTeacher.name);
         } else {
             console.error('Teacher not found with ID:', teacherId);
-            console.log('Available teacher IDs:', this.teachers.map(t => t.id));
         }
     }
 
     async confirmAssignment() {
-        console.log('confirmAssignment called, selectedTeacher:', this.selectedTeacher);
-        console.log('currentAssignmentContext:', this.currentAssignmentContext);
         
         // If selectedTeacher is null, try to find it from the search field
         if (!this.selectedTeacher) {
             const searchValue = document.getElementById('teacherSearch').value;
-            console.log('selectedTeacher is null, trying to find from search value:', searchValue);
             
             if (searchValue) {
                 this.selectedTeacher = this.teachers.find(t => t.name === searchValue);
-                console.log('Found teacher from search value:', this.selectedTeacher);
             }
         }
         
@@ -729,7 +665,6 @@ class PausenaufsichtApp {
                 requestData = {
                     teacherId: selectedTeacherId
                 };
-                console.log('Updating assignment:', context.assignmentId, requestData);
                 
                 response = await fetch(`/api/assignments/${context.assignmentId}`, {
                     method: 'PUT',
@@ -747,7 +682,6 @@ class PausenaufsichtApp {
                     teacherId: selectedTeacherId,
                     supervisionNumber: context.supervisionNumber
                 };
-                console.log('Creating new assignment:', requestData);
                 
                 response = await fetch('/api/assignments', {
                     method: 'POST',
@@ -758,11 +692,9 @@ class PausenaufsichtApp {
                 });
             }
 
-            console.log('Response status:', response.status);
             
             if (response.ok) {
                 const assignment = await response.json();
-                console.log('Assignment saved successfully:', assignment);
                 this.updateSlotElement(context.slotElement, assignment);
                 this.showStatusMessage('Zuweisung erfolgreich gespeichert', 'success');
             } else {
@@ -878,36 +810,6 @@ class PausenaufsichtApp {
         } else {
             loadingIndicator.classList.add('hidden');
         }
-    }
-
-    groupDatesIntoWeeks(dates) {
-        const weeks = [];
-        let currentWeek = [];
-        
-        dates.forEach(dateStr => {
-            const date = new Date(dateStr);
-            const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-            
-            // Skip weekends (Saturday = 6, Sunday = 0)
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                return;
-            }
-            
-            // If it's Monday (1) and we have a current week, start a new week
-            if (dayOfWeek === 1 && currentWeek.length > 0) {
-                weeks.push(currentWeek);
-                currentWeek = [];
-            }
-            
-            currentWeek.push(dateStr);
-        });
-        
-        // Add the last week if it has any days
-        if (currentWeek.length > 0) {
-            weeks.push(currentWeek);
-        }
-        
-        return weeks;
     }
 
     createAreaTemplateView(area) {
@@ -1112,116 +1014,12 @@ class PausenaufsichtApp {
         return this.availabilitySettings.has(key) ? this.availabilitySettings.get(key) : true;
     }
 
-    createTemplateDayRow(area, day, sampleDate, dayOffset) {
-        // Calculate the date for this day of the week
-        const baseDate = new Date(sampleDate);
-        const targetDate = new Date(baseDate);
-        targetDate.setDate(baseDate.getDate() + dayOffset);
-        const dateStr = targetDate.toISOString().split('T')[0];
-        
-        return `
-            <div class="template-day-row">
-                <div class="day-cell">
-                    <div class="day-name">${day.name}</div>
-                    <div class="day-short">${day.short}</div>
-                </div>
-                ${this.currentSchedule.timeSlots.map(timeSlot => {
-                    // Use assignments from the calculated date if available
-                    const assignments = this.currentSchedule.assignments[dateStr] ? 
-                        (this.currentSchedule.assignments[dateStr][area.id] ? 
-                            (this.currentSchedule.assignments[dateStr][area.id][timeSlot.id] || []) : []) : [];
-                    
-                    return `
-                        <div class="time-cell">
-                            ${Array.from({ length: area.supervision_count }, (_, index) => {
-                                const supervisionNumber = index + 1;
-                                const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                                return this.createSupervisionSlot(area, timeSlot, dateStr, supervisionNumber, assignment);
-                            }).join('')}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    }
-
-    createAreaWeekView(area, weeks) {
-        const areaDiv = document.createElement('div');
-        areaDiv.className = 'area-week-view';
-        
-        const weekElements = weeks.map((week, weekIndex) => {
-            return this.createWeekElement(area, week, weekIndex);
-        }).join('');
-        
-        areaDiv.innerHTML = `
-            <div class="area-header" data-location="${area.location}">
-                <h3>${area.name} (${area.supervision_count} Aufsicht${area.supervision_count > 1 ? 'en' : ''})</h3>
-            </div>
-            <div class="weeks-container">
-                ${weekElements}
-            </div>
-        `;
-        
-        return areaDiv;
-    }
-
-    createWeekElement(area, week, weekIndex) {
-        const startDate = new Date(week[0]);
-        const endDate = new Date(week[week.length - 1]);
-        const weekTitle = `${startDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${endDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
-        
-        return `
-            <div class="week-section">
-                <div class="week-header">
-                    <h4>Woche ${weekTitle}</h4>
-                </div>
-                <div class="week-grid">
-                    <div class="week-grid-header">
-                        <div class="day-column-header">Tag</div>
-                        ${this.currentSchedule.timeSlots.map(timeSlot => 
-                            `<div class="time-column-header">${timeSlot.display_name}</div>`
-                        ).join('')}
-                    </div>
-                    ${week.map(date => this.createWeekDayRow(area, date)).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    createWeekDayRow(area, date) {
-        const dateObj = new Date(date);
-        const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
-        const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-        
-        return `
-            <div class="week-day-row">
-                <div class="day-cell">
-                    <div class="day-name">${dayName}</div>
-                    <div class="day-date">${dateStr}</div>
-                </div>
-                ${this.currentSchedule.timeSlots.map(timeSlot => {
-                    const assignments = this.currentSchedule.assignments[date][area.id][timeSlot.id] || [];
-                    return `
-                        <div class="time-cell">
-                            ${Array.from({ length: area.supervision_count }, (_, index) => {
-                                const supervisionNumber = index + 1;
-                                const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                                return this.createSupervisionSlot(area, timeSlot, date, supervisionNumber, assignment);
-                            }).join('')}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    }
-
     checkSchedulingConflict(teacherId, context) {
         // Check if the teacher already has an assignment at the same time slot on the same day
         const targetDate = context.date;
         const targetTimeSlotId = context.timeSlotId;
         const targetAreaId = context.areaId;
         
-        console.log('Checking conflicts for teacher:', teacherId, 'on date:', targetDate, 'time slot:', targetTimeSlotId, 'area:', targetAreaId);
         
         // 1. Check exact date conflicts (same date, same time slot, ANY area, ANY location)
         if (this.currentSchedule.assignments[targetDate]) {
@@ -1238,7 +1036,6 @@ class PausenaufsichtApp {
                     if (assignment.teacher_id === teacherId) {
                         // Skip if this is the same assignment we're editing
                         if (context.assignmentId && assignment.id === context.assignmentId) {
-                            console.log('Skipping same assignment being edited:', assignment.id);
                             continue;
                         }
                         
@@ -1246,13 +1043,6 @@ class PausenaufsichtApp {
                         const conflictLocation = area.location || 'Unbekannt';
                         const targetLocation = this.areas.find(a => a.id === targetAreaId)?.location || 'Unbekannt';
                         
-                        console.log('Found exact date conflict:', {
-                            conflictArea: area.name,
-                            conflictLocation: conflictLocation,
-                            targetArea: this.areas.find(a => a.id === targetAreaId)?.name,
-                            targetLocation: targetLocation,
-                            assignment: assignment
-                        });
                         
                         return {
                             areaId: area.id,
@@ -1312,11 +1102,9 @@ class PausenaufsichtApp {
         
         // Return the first recurring conflict if any
         if (conflicts.length > 0) {
-            console.log('Found recurring conflict:', conflicts[0]);
             return conflicts[0];
         }
         
-        console.log('No conflicts found');
         return null;
     }
 
