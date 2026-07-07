@@ -294,6 +294,19 @@ main {
     border-color: #388e3c;
 }
 
+/* Zum Tausch angebotene Aufsicht */
+.supervision-slot.filled.offered {
+    background-color: #fff3cd;
+    color: #8a6d3b;
+    border: 2px dashed #f0ad4e;
+    font-style: italic;
+}
+
+.supervision-slot.filled.offered:hover {
+    background-color: #ffe8a1;
+    border-color: #ec971f;
+}
+
 .supervision-slot.updating {
     background-color: #fff3e0;
     border-color: #ff9800;

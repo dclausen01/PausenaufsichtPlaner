@@ -41,6 +41,7 @@
                 </div>
                 <div class="user-controls">
                     <span id="userInfo"></span>
+                    <button id="offersBtn" class="btn-secondary">Tauschbörse</button>
                     <button id="myAssignmentsBtn" class="btn-secondary">Meine Aufsichten</button>
                     <button id="logoutBtn">Abmelden</button>
                 </div>
@@ -94,6 +95,7 @@
                     <div class="modal-actions">
                         <button id="confirmAssignment" class="btn-primary" disabled>Zuweisen</button>
                         <button id="cancelAssignment" class="btn-secondary">Abbrechen</button>
+                        <button id="offerAssignment" class="btn-secondary hidden">Zum Tausch anbieten</button>
                         <button id="removeAssignment" class="btn-danger hidden">Entfernen</button>
                     </div>
                 </div>
@@ -112,6 +114,37 @@
                         <button id="confirmYes" class="btn-primary">Ja</button>
                         <button id="confirmNo" class="btn-secondary">Nein</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tauschbörse Modal -->
+        <div id="offersModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Tauschbörse</h3>
+                    <button class="close-btn" id="closeOffersModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem; color: #666;">
+                        Hier stehen alle Aufsichten, die Kolleg:innen zum Tausch anbieten.
+                        Mit „Übernehmen" wird die Aufsicht sofort auf Sie übertragen.
+                    </p>
+                    <table id="offersTable" class="assignments-table">
+                        <thead>
+                            <tr>
+                                <th>Tag</th>
+                                <th>Zeit</th>
+                                <th>Bereich</th>
+                                <th>Standort</th>
+                                <th>Angeboten von</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Offers will be populated here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

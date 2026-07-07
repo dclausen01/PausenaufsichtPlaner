@@ -439,6 +439,95 @@ app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection,
     }
 });
 
+// --- Tauschbörse ---
+// Liste aller angebotenen Aufsichten der aktiven Periode
+app.get('/api/assignments/offers', requireAuth, async (req, res) => {
+    try {
+        const period = await PlanningPeriod.getActive();
+        if (!period) return res.json([]);
+
+        const offers = await Assignment.getOffers(period.id);
+        res.json(offers);
+    } catch (error) {
+        console.error('Error getting offers:', error);
+        res.status(500).json({ error: 'Failed to get offers' });
+    }
+});
+
+// Eigene Aufsicht zum Tausch anbieten (Admin: jede Aufsicht)
+app.post('/api/assignments/:id/offer', requireAuth, requireTeacherSelection, async (req, res) => {
+    try {
+        const assignment = await Assignment.getById(req.params.id);
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        if (!req.session.isAdmin && assignment.teacher_id !== req.session.selectedTeacherId) {
+            return res.status(403).json({ error: 'Sie können nur eigene Aufsichten zum Tausch anbieten' });
+        }
+
+        const updated = await Assignment.offer(assignment.id);
+        io.emit('assignmentOffered', updated);
+        res.json(updated);
+    } catch (error) {
+        console.error('Error offering assignment:', error);
+        res.status(500).json({ error: 'Failed to offer assignment' });
+    }
+});
+
+// Tauschangebot zurückziehen
+app.delete('/api/assignments/:id/offer', requireAuth, requireTeacherSelection, async (req, res) => {
+    try {
+        const assignment = await Assignment.getById(req.params.id);
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        if (!req.session.isAdmin && assignment.teacher_id !== req.session.selectedTeacherId) {
+            return res.status(403).json({ error: 'Sie können nur eigene Angebote zurückziehen' });
+        }
+
+        const updated = await Assignment.withdrawOffer(assignment.id);
+        io.emit('assignmentOfferWithdrawn', updated);
+        res.json(updated);
+    } catch (error) {
+        console.error('Error withdrawing offer:', error);
+        res.status(500).json({ error: 'Failed to withdraw offer' });
+    }
+});
+
+// Angebotene Aufsicht übernehmen
+app.post('/api/assignments/:id/take', requireAuth, requireTeacherSelection, async (req, res) => {
+    try {
+        const takerId = req.session.selectedTeacherId;
+        if (!takerId) {
+            return res.status(400).json({ error: 'Ihrem Konto ist keine Lehrkraft zugeordnet' });
+        }
+
+        const assignment = await Assignment.getById(req.params.id);
+        if (!assignment) {
+            return res.status(404).json({ error: 'Assignment not found' });
+        }
+        if (!assignment.offered_at) {
+            return res.status(409).json({ error: 'Diese Aufsicht wird nicht (mehr) zum Tausch angeboten' });
+        }
+        if (assignment.teacher_id === takerId) {
+            return res.status(400).json({ error: 'Das ist Ihre eigene Aufsicht — Sie können das Angebot zurückziehen' });
+        }
+
+        const previousTeacherName = assignment.teacher_name;
+        const updated = await Assignment.take(assignment.id, takerId);
+        if (!updated) {
+            // Race: jemand anderes war schneller
+            return res.status(409).json({ error: 'Diese Aufsicht wurde gerade von jemand anderem übernommen' });
+        }
+
+        io.emit('assignmentTaken', { assignment: updated, previousTeacherName });
+        res.json(updated);
+    } catch (error) {
+        console.error('Error taking assignment:', error);
+        res.status(500).json({ error: 'Failed to take assignment' });
+    }
+});
+
 app.post('/api/assignments', requireAuth, requireTeacherSelection, canModifyTeacherAssignment, async (req, res) => {
     try {
         const { areaId, timeSlotId, weekday, teacherId, supervisionNumber } = req.body;
@@ -791,6 +880,13 @@ async function updateDatabaseSchema() {
         // weekday (1=Mo … 5=Fr) und period_id.
         await migrateAssignmentsToWeekdays();
 
+        // Tauschbörse: offered_at-Spalte für bereits migrierte Datenbanken
+        const saInfo = await database.query("PRAGMA table_info(supervision_assignments)");
+        if (!saInfo.some(column => column.name === 'offered_at')) {
+            console.log('Ergänze offered_at-Spalte (Tauschbörse)...');
+            await database.run('ALTER TABLE supervision_assignments ADD COLUMN offered_at DATETIME');
+        }
+
         // Es muss immer eine aktive Planungsperiode geben
         await PlanningPeriod.ensureActive();
 
@@ -826,6 +922,7 @@ async function migrateAssignmentsToWeekdays() {
             weekday INTEGER NOT NULL,
             teacher_id INTEGER NOT NULL,
             supervision_number INTEGER NOT NULL DEFAULT 1,
+            offered_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (period_id) REFERENCES planning_periods (id),

@@ -174,6 +174,57 @@ class Assignment {
         }
     }
 
+    // --- Tauschbörse ---
+
+    /** Bietet die Aufsicht zum Tausch an. */
+    static async offer(id) {
+        await database.run(
+            'UPDATE supervision_assignments SET offered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [id]
+        );
+        return this.getById(id);
+    }
+
+    /** Zieht das Tauschangebot zurück. */
+    static async withdrawOffer(id) {
+        await database.run(
+            'UPDATE supervision_assignments SET offered_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [id]
+        );
+        return this.getById(id);
+    }
+
+    /**
+     * Übernimmt eine angebotene Aufsicht. Atomar: Die WHERE-Bedingung
+     * `offered_at IS NOT NULL` sorgt dafür, dass bei zwei gleichzeitigen
+     * Übernahmen nur die erste durchgeht (die zweite ändert 0 Zeilen).
+     */
+    static async take(id, newTeacherId) {
+        const result = await database.run(
+            `UPDATE supervision_assignments
+             SET teacher_id = ?, offered_at = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ? AND offered_at IS NOT NULL`,
+            [newTeacherId, id]
+        );
+        if (result.changes === 0) return null; // nicht (mehr) angeboten
+        return this.getById(id);
+    }
+
+    /** Alle aktuell angebotenen Aufsichten der Periode (für die Börsen-Liste). */
+    static async getOffers(periodId) {
+        return database.query(`
+            SELECT sa.*, a.name as area_name, a.location, a.supervision_count,
+                   ts.name as time_slot_name, ts.display_name as time_slot_display,
+                   ts.sort_order, t.name as teacher_name
+            FROM supervision_assignments sa
+            JOIN areas a ON sa.area_id = a.id
+            JOIN time_slots ts ON sa.time_slot_id = ts.id
+            JOIN teachers t ON sa.teacher_id = t.id
+            WHERE sa.period_id = ? AND sa.offered_at IS NOT NULL
+            ORDER BY sa.weekday, ts.sort_order, a.name
+        `, [periodId]);
+    }
+
     static async getTeacherAssignments(teacherId, periodId) {
         try {
             return await database.query(`
