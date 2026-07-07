@@ -133,6 +133,65 @@ class Teacher {
         }
     }
 
+    /**
+     * Zerlegt einen AD-Anzeigenamen (displayName) best effort in Vor- und
+     * Nachname. Unterstützt "Nachname, Vorname" und "Vorname Nachname".
+     */
+    static parseDisplayName(displayName) {
+        if (!displayName) return { longName: '', foreName: '' };
+
+        if (displayName.includes(',')) {
+            const [longName, foreName] = displayName.split(',').map(s => s.trim());
+            return { longName: longName || '', foreName: foreName || '' };
+        }
+
+        const parts = displayName.trim().split(/\s+/);
+        if (parts.length > 1) {
+            return {
+                longName: parts[parts.length - 1],
+                foreName: parts.slice(0, -1).join(' ')
+            };
+        }
+        return { longName: displayName.trim(), foreName: '' };
+    }
+
+    /**
+     * Findet die Lehrkraft zur LDAP-Kennung (loginSub = Kürzel) oder legt sie
+     * beim ersten Login automatisch an. Der Anzeigename aus dem AD wird dabei
+     * übernommen bzw. aktualisiert — eine CSV-Pflege ist nicht mehr nötig.
+     */
+    static async findOrCreateByLogin(loginSub, displayName) {
+        try {
+            const existing = await this.getByName(loginSub);
+            const parsed = this.parseDisplayName(displayName);
+
+            if (existing) {
+                // Name aus dem AD aktualisieren, falls geliefert und abweichend
+                if (displayName &&
+                    (existing.longName !== parsed.longName || existing.foreName !== parsed.foreName)) {
+                    const encryptedData = encryption.encryptTeacherData(parsed);
+                    await database.run(
+                        'UPDATE teachers SET encrypted_data = ? WHERE id = ?',
+                        [encryptedData, existing.id]
+                    );
+                    return { ...existing, ...parsed };
+                }
+                return existing;
+            }
+
+            const encryptedData = encryption.encryptTeacherData(parsed);
+            const result = await database.run(
+                'INSERT INTO teachers (name, encrypted_data) VALUES (?, ?)',
+                [loginSub, encryptedData]
+            );
+            console.log(`Neue Lehrkraft aus LDAP-Login angelegt: ${loginSub}`);
+            return await this.getById(result.id);
+        } catch (error) {
+            console.error('Error finding/creating teacher by login:', error);
+            throw error;
+        }
+    }
+
     static async searchByName(searchTerm) {
         try {
             const allTeachers = await this.getAll();

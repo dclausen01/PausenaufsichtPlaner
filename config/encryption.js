@@ -2,9 +2,16 @@ const crypto = require('crypto');
 
 class Encryption {
     constructor() {
-        // Use a fixed key for this application - in production, this should be from environment variables
         this.algorithm = 'aes-256-cbc';
-        this.secretKey = crypto.scryptSync('pausenaufsicht-secret-key-2024', 'salt', 32);
+        // Schlüssel aus der Umgebung (.env: ENCRYPTION_KEY). Der alte fest
+        // einprogrammierte Wert bleibt als Fallback, damit bestehende
+        // Datenbanken lesbar bleiben — für neue Installationen unbedingt
+        // ENCRYPTION_KEY setzen.
+        const passphrase = process.env.ENCRYPTION_KEY || 'pausenaufsicht-secret-key-2024';
+        if (!process.env.ENCRYPTION_KEY) {
+            console.warn('WARNUNG: ENCRYPTION_KEY nicht gesetzt — Fallback-Schlüssel wird verwendet (.env konfigurieren!)');
+        }
+        this.secretKey = crypto.scryptSync(passphrase, 'salt', 32);
     }
 
     encrypt(text) {

@@ -50,7 +50,12 @@ class PausenaufsichtApp {
             this.isAdmin = data.isAdmin;
             this.teacherSelected = data.teacherSelected;
             this.selectedTeacherId = data.selectedTeacherId;
-            
+            this.selectedTeacherInfo = data.selectedTeacher || null;
+            this.authMode = data.authMode || 'legacy';
+
+            // Im Legacy-Modus gibt es keinen Benutzernamen im Login-Formular
+            this.updateLoginForm();
+
             // If authenticated but teacher not selected (and not admin), show teacher selection
             if (this.authenticated && !this.isAdmin && !this.teacherSelected) {
                 this.showTeacherSelectionModal();
@@ -61,6 +66,20 @@ class PausenaufsichtApp {
             this.isAdmin = false;
             this.teacherSelected = false;
             this.selectedTeacherId = null;
+        }
+    }
+
+    updateLoginForm() {
+        const usernameGroup = document.getElementById('usernameGroup');
+        const usernameInput = document.getElementById('username');
+        if (!usernameGroup || !usernameInput) return;
+
+        if (this.authMode === 'ldap') {
+            usernameGroup.classList.remove('hidden');
+            usernameInput.required = true;
+        } else {
+            usernameGroup.classList.add('hidden');
+            usernameInput.required = false;
         }
     }
 
@@ -146,16 +165,21 @@ class PausenaufsichtApp {
     }
 
     async handleLogin() {
+        const username = document.getElementById('username') ? document.getElementById('username').value : '';
         const password = document.getElementById('password').value;
         const errorDiv = document.getElementById('loginError');
 
         try {
+            const body = this.authMode === 'ldap'
+                ? { username, password }
+                : { password, isAdmin: false };
+
             const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ password, isAdmin: false })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
@@ -164,21 +188,20 @@ class PausenaufsichtApp {
                 this.authenticated = true;
                 this.isAdmin = data.isAdmin || false;
                 this.teacherSelected = data.teacherSelected || false;
-                
-                // If not admin and teacher not selected, show teacher selection modal
+                this.selectedTeacherInfo = data.selectedTeacher || null;
+                this.selectedTeacherId = data.selectedTeacher ? data.selectedTeacher.id : null;
+
+                this.showApp();
+                this.setDefaultDates();
+                await this.loadInitialData();
+                window.wsManager.connect();
+
+                // Nur im Legacy-Modus muss das Kürzel noch gewählt werden —
+                // bei LDAP ist die Lehrkraft durch die Anmeldung festgelegt
                 if (!this.isAdmin && !this.teacherSelected) {
-                    this.showApp();
-                    this.setDefaultDates();
-                    await this.loadInitialData();
-                    window.wsManager.connect();
                     this.showTeacherSelectionModal();
-                } else {
-                    this.showApp();
-                    this.setDefaultDates();
-                    await this.loadInitialData();
-                    window.wsManager.connect();
                 }
-                
+
                 this.showStatusMessage('Erfolgreich angemeldet', 'success');
             } else {
                 errorDiv.textContent = data.error || 'Anmeldung fehlgeschlagen';
@@ -194,6 +217,9 @@ class PausenaufsichtApp {
             await fetch('/api/logout', { method: 'POST' });
             this.authenticated = false;
             this.isAdmin = false;
+            this.teacherSelected = false;
+            this.selectedTeacherId = null;
+            this.selectedTeacherInfo = null;
             window.wsManager.disconnect();
             this.showLogin();
             this.showStatusMessage('Erfolgreich abgemeldet', 'success');
@@ -206,6 +232,8 @@ class PausenaufsichtApp {
     showLogin() {
         document.getElementById('loginModal').classList.remove('hidden');
         document.getElementById('app').classList.add('hidden');
+        const usernameInput = document.getElementById('username');
+        if (usernameInput) usernameInput.value = '';
         document.getElementById('password').value = '';
         document.getElementById('loginError').textContent = '';
     }
@@ -213,10 +241,20 @@ class PausenaufsichtApp {
     showApp() {
         document.getElementById('loginModal').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
-        
-        // Update user info
+        this.updateUserInfo();
+    }
+
+    updateUserInfo() {
         const userInfo = document.getElementById('userInfo');
-        userInfo.textContent = this.isAdmin ? 'Admin-Modus' : 'Benutzer-Modus';
+        if (this.selectedTeacherInfo) {
+            const t = this.selectedTeacherInfo;
+            const fullName = `${t.foreName || ''} ${t.longName || ''}`.trim();
+            userInfo.textContent = fullName
+                ? `${t.name} (${fullName})${this.isAdmin ? ' – Admin' : ''}`
+                : `${t.name}${this.isAdmin ? ' – Admin' : ''}`;
+        } else {
+            userInfo.textContent = this.isAdmin ? 'Admin-Modus' : 'Benutzer-Modus';
+        }
     }
 
     setDefaultDates() {
@@ -242,10 +280,16 @@ class PausenaufsichtApp {
             this.teachers = await teachersResponse.json();
             this.areas = await areasResponse.json();
             this.timeSlots = await timeSlotsResponse.json();
-            
+
             // Load availability settings
             const availabilityData = await availabilityResponse.json();
             this.loadAvailabilitySettings(availabilityData);
+
+            // Eigene Lehrkraft-Info nachziehen, falls nur die ID bekannt ist
+            if (this.selectedTeacherId && !this.selectedTeacherInfo) {
+                this.selectedTeacherInfo = this.teachers.find(t => t.id === this.selectedTeacherId) || null;
+            }
+            this.updateUserInfo();
 
             // Load initial schedule
             await this.loadSchedule();
@@ -1400,11 +1444,8 @@ class PausenaufsichtApp {
                 this.teacherSelected = true;
                 this.selectedTeacherId = this.selectedTeacherForSelection.id;
                 this.selectedTeacherInfo = this.selectedTeacherForSelection;
-                
-                // Update user info to show selected teacher
-                const userInfo = document.getElementById('userInfo');
-                userInfo.textContent = `${this.selectedTeacherInfo.name} (${this.selectedTeacherInfo.foreName} ${this.selectedTeacherInfo.longName})`;
-                
+                this.updateUserInfo();
+
                 this.hideTeacherSelectionModal();
                 this.showStatusMessage(`Lehrerkürzel ${this.selectedTeacherInfo.name} ausgewählt`, 'success');
             } else {

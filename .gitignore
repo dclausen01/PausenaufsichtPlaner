@@ -1,0 +1,16 @@
+# Zugangsdaten & Konfiguration
+.env
+
+# Abhängigkeiten
+node_modules/
+
+# Datenbank & personenbezogene Daten
+database/*.db
+database/*.db.orig
+teacher.csv
+teacher.zip
+cookies.txt
+
+# Betriebssystem
+.DS_Store
+Thumbs.db

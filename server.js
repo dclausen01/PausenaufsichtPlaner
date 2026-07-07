@@ -1,22 +1,48 @@
+// .env laden, bevor andere Module (encryption!) auf process.env zugreifen
+require('./config/env').loadEnvFile();
+
 const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 // Import our modules
 const database = require('./config/database');
 const Teacher = require('./models/Teacher');
 const Assignment = require('./models/Assignment');
+const { LdapAuthenticator, ldapConfigFromEnv } = require('./auth/ldap');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
-const USER_PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!').digest('hex');
-const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update('!gemeinsamzumerfolg!123').digest('hex');
+
+// --- Authentifizierung ---
+// LDAP-Modus, sobald LDAP_URL gesetzt ist (Konfiguration siehe .env.example).
+// Ohne LDAP_URL läuft der Legacy-Modus mit gemeinsamem Passwort aus der .env
+// (USER_PASSWORD / ADMIN_PASSWORD) — gedacht für lokale Entwicklung/Tests.
+const AUTH_MODE = process.env.LDAP_URL ? 'ldap' : 'legacy';
+let ldapAuthenticator = null;
+if (AUTH_MODE === 'ldap') {
+    ldapAuthenticator = new LdapAuthenticator(ldapConfigFromEnv());
+    console.log(`Authentifizierung: LDAP (${process.env.LDAP_URL})`);
+} else {
+    console.log('Authentifizierung: Legacy-Passwortmodus (LDAP_URL nicht gesetzt)');
+}
+
+// Admin-Kennungen im LDAP-Modus: Komma-getrennte Kürzel in ADMIN_USERS
+const ADMIN_USERS = (process.env.ADMIN_USERS || '')
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+
+const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
+const USER_PASSWORD_HASH = process.env.USER_PASSWORD ? sha256(process.env.USER_PASSWORD) : null;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD ? sha256(process.env.ADMIN_PASSWORD) : null;
 
 // Middleware
 app.use(express.json());
@@ -24,8 +50,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 // Session configuration
+if (!process.env.SESSION_SECRET) {
+    console.warn('WARNUNG: SESSION_SECRET nicht gesetzt — Fallback-Secret wird verwendet (.env konfigurieren!)');
+}
 app.use(session({
-    secret: 'pausenaufsicht-session-secret-2024',
+    secret: process.env.SESSION_SECRET || 'pausenaufsicht-session-secret-2024',
     resave: false,
     saveUninitialized: false,
     cookie: { 
@@ -87,31 +116,70 @@ const canModifyTeacherAssignment = (req, res, next) => {
 // Authentication
 app.post('/api/login', async (req, res) => {
     try {
-        const { password, isAdmin } = req.body;
-        
-        const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
-        let isValid = false;
-        
-        if (isAdmin) {
-            // Admin login - check admin password
-            isValid = passwordHash === ADMIN_PASSWORD_HASH;
-        } else {
-            // Regular user login - check user password
-            isValid = passwordHash === USER_PASSWORD_HASH;
+        if (AUTH_MODE === 'ldap') {
+            // --- LDAP-Login: Benutzername + Passwort gegen das AD prüfen ---
+            const { username, password } = req.body;
+
+            if (!username || !password) {
+                return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+            }
+
+            let auth;
+            try {
+                auth = await ldapAuthenticator.authenticate(username, password);
+            } catch (error) {
+                // Technische Fehler (LDAP/TLS nicht erreichbar) serverseitig
+                // protokollieren, dem Client nur eine generische Meldung geben.
+                console.error('LDAP-Authentifizierung fehlgeschlagen (technischer Fehler):', error);
+                return res.status(500).json({ error: 'Anmeldedienst nicht erreichbar' });
+            }
+
+            if (!auth) {
+                return res.status(401).json({ error: 'Anmeldung fehlgeschlagen' });
+            }
+
+            // Lehrkraft anhand der AD-Kennung finden oder beim ersten Login
+            // anlegen — die Identität ist damit durch das Login festgelegt.
+            const teacher = await Teacher.findOrCreateByLogin(auth.loginSub, auth.name);
+            const isAdmin = ADMIN_USERS.includes(auth.loginSub.toLowerCase());
+
+            req.session.authenticated = true;
+            req.session.isAdmin = isAdmin;
+            req.session.teacherSelected = true;
+            req.session.selectedTeacherId = teacher.id;
+            req.session.username = auth.loginSub;
+
+            return res.json({
+                success: true,
+                isAdmin,
+                teacherSelected: true,
+                selectedTeacher: teacher,
+                message: 'Login successful'
+            });
         }
-        
-        if (isValid) {
+
+        // --- Legacy-Login: gemeinsames Passwort aus der .env ---
+        const { password, isAdmin } = req.body;
+        const expectedHash = isAdmin ? ADMIN_PASSWORD_HASH : USER_PASSWORD_HASH;
+
+        if (!expectedHash) {
+            return res.status(503).json({
+                error: 'Login nicht konfiguriert: LDAP_URL oder USER_PASSWORD/ADMIN_PASSWORD in der .env setzen'
+            });
+        }
+
+        if (password && sha256(password) === expectedHash) {
             req.session.authenticated = true;
             req.session.isAdmin = isAdmin || false;
             // For standard users, teacher selection is required
             req.session.teacherSelected = isAdmin || false;
             req.session.selectedTeacherId = null;
-            
-            res.json({ 
-                success: true, 
+
+            res.json({
+                success: true,
                 isAdmin: req.session.isAdmin,
                 teacherSelected: req.session.teacherSelected,
-                message: 'Login successful' 
+                message: 'Login successful'
             });
         } else {
             res.status(401).json({ error: 'Invalid password' });
@@ -132,20 +200,36 @@ app.post('/api/logout', (req, res) => {
     });
 });
 
-app.get('/api/auth-status', (req, res) => {
-    res.json({ 
+app.get('/api/auth-status', async (req, res) => {
+    let selectedTeacher = null;
+    try {
+        if (req.session.authenticated && req.session.selectedTeacherId) {
+            selectedTeacher = await Teacher.getById(req.session.selectedTeacherId);
+        }
+    } catch (error) {
+        console.error('Error loading selected teacher for auth-status:', error);
+    }
+
+    res.json({
         authenticated: !!req.session.authenticated,
         isAdmin: !!req.session.isAdmin,
         teacherSelected: !!req.session.teacherSelected,
-        selectedTeacherId: req.session.selectedTeacherId || null
+        selectedTeacherId: req.session.selectedTeacherId || null,
+        selectedTeacher,
+        authMode: AUTH_MODE
     });
 });
 
-// Teacher selection for standard users
+// Teacher selection for standard users (nur im Legacy-Modus — im LDAP-Modus
+// ist die Lehrkraft durch die Anmeldung festgelegt)
 app.post('/api/select-teacher', requireAuth, async (req, res) => {
     try {
+        if (AUTH_MODE === 'ldap') {
+            return res.status(400).json({ error: 'Die Lehrkraft ist durch die LDAP-Anmeldung festgelegt' });
+        }
+
         const { teacherId } = req.body;
-        
+
         if (!teacherId) {
             return res.status(400).json({ error: 'Teacher ID is required' });
         }
@@ -161,8 +245,9 @@ app.post('/api/select-teacher', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Admin users do not need teacher selection' });
         }
         
-        // Set selected teacher in session
-        req.session.selectedTeacherId = teacherId;
+        // Set selected teacher in session (immer als Zahl, damit die
+        // strikten Vergleiche in den Berechtigungsprüfungen zuverlässig sind)
+        req.session.selectedTeacherId = parseInt(teacherId);
         req.session.teacherSelected = true;
         
         res.json({ 
@@ -298,6 +383,30 @@ app.get('/api/assignments/schedule', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error getting schedule:', error);
         res.status(500).json({ error: 'Failed to get schedule' });
+    }
+});
+
+// Eigene Aufsichten der angemeldeten Lehrkraft ("Meine Aufsichten")
+app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+
+        if (!req.session.selectedTeacherId) {
+            // Admins ohne zugeordnete Lehrkraft (Legacy-Modus) haben keine eigenen Aufsichten
+            return res.json([]);
+        }
+
+        const assignments = await Assignment.getTeacherAssignments(
+            req.session.selectedTeacherId, startDate, endDate
+        );
+        res.json(assignments);
+    } catch (error) {
+        console.error('Error getting my assignments:', error);
+        res.status(500).json({ error: 'Failed to get assignments' });
     }
 });
 
@@ -535,15 +644,19 @@ async function startServer() {
             console.error('Error updating database schema:', error);
         }
 
-        // Import teachers from CSV after schema is updated
+        // Optionaler CSV-Import (nur noch als Alt-Bestand relevant — im
+        // LDAP-Modus werden Lehrkräfte beim ersten Login automatisch angelegt)
         try {
+            const csvPath = './teacher.csv';
             const teacherCount = await database.query('SELECT COUNT(*) as count FROM teachers');
-            if (teacherCount[0].count === 0) {
+            if (teacherCount[0].count === 0 && fs.existsSync(csvPath)) {
                 console.log('Importing teachers from CSV...');
-                const imported = await Teacher.importFromCSV('./teacher.csv');
+                const imported = await Teacher.importFromCSV(csvPath);
                 console.log(`Successfully imported ${imported} teachers from CSV`);
-            } else {
+            } else if (teacherCount[0].count > 0) {
                 console.log(`Database already contains ${teacherCount[0].count} teachers`);
+            } else {
+                console.log('Keine teacher.csv vorhanden — Lehrkräfte werden beim ersten LDAP-Login angelegt');
             }
         } catch (error) {
             console.error('Error importing teachers:', error);
