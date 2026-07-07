@@ -10,6 +10,19 @@ class AdminApp {
             .replaceAll("'", '&#39;');
     }
 
+    static WEEKDAYS = [
+        { day: 1, name: 'Montag' },
+        { day: 2, name: 'Dienstag' },
+        { day: 3, name: 'Mittwoch' },
+        { day: 4, name: 'Donnerstag' },
+        { day: 5, name: 'Freitag' }
+    ];
+
+    static weekdayName(weekday) {
+        const entry = AdminApp.WEEKDAYS.find(w => w.day === parseInt(weekday));
+        return entry ? entry.name : '';
+    }
+
     constructor() {
         this.authenticated = false;
         this.isAdmin = false;
@@ -19,7 +32,8 @@ class AdminApp {
         this.currentLocation = 'Rendsburg';
         this.selectedTeacher = null;
         this.currentAssignmentContext = null;
-        this.templateAssignments = {}; // Store template assignments by day of week
+        this.templateAssignments = {}; // Wochenvorlage: weekday -> areaId -> timeSlotId -> [...]
+        this.currentPeriod = null;
         this.availabilitySettings = new Map(); // Store area-timeslot availability settings
         
         this.init();
@@ -252,53 +266,31 @@ class AdminApp {
 
     async loadTemplateAssignments() {
         try {
-            // Get current Monday as start of template week
-            const today = new Date();
-            const monday = new Date(today);
-            monday.setDate(today.getDate() - today.getDay() + 1);
-            
-            const friday = new Date(monday);
-            friday.setDate(monday.getDate() + 4);
-            
-            const startDate = monday.toISOString().split('T')[0];
-            const endDate = friday.toISOString().split('T')[0];
-            
-            const response = await fetch(`/api/assignments/schedule?startDate=${startDate}&endDate=${endDate}`);
-            
+            const response = await fetch('/api/assignments/template');
+
             if (!response.ok) {
                 throw new Error('Failed to load template assignments');
             }
 
-            const schedule = await response.json();
-            
-            // Convert schedule to template format (indexed by day of week)
-            this.templateAssignments = {};
-            const weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
-            
-            weekdays.forEach((dayName, index) => {
-                this.templateAssignments[dayName] = {};
-                
-                // Find the date for this day of week
-                const dayDate = new Date(monday);
-                dayDate.setDate(monday.getDate() + index);
-                const dateStr = dayDate.toISOString().split('T')[0];
-                
-                if (schedule.assignments[dateStr]) {
-                    this.templateAssignments[dayName] = schedule.assignments[dateStr];
-                }
-            });
-            
+            const template = await response.json();
+            this.templateAssignments = template.assignments;
+            this.currentPeriod = template.period;
+
+            // Aktive Periode im Kopfbereich anzeigen
+            const userInfo = document.getElementById('userInfo');
+            if (userInfo && this.currentPeriod) {
+                userInfo.textContent = `Admin-Modus · ${this.currentPeriod.name}`;
+            }
         } catch (error) {
             console.error('Error loading template assignments:', error);
-            // Initialize empty template if loading fails
-            this.templateAssignments = {
-                'Montag': {},
-                'Dienstag': {},
-                'Mittwoch': {},
-                'Donnerstag': {},
-                'Freitag': {}
-            };
+            this.templateAssignments = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {} };
         }
+    }
+
+    // Vom WebSocket-Handler aufgerufen, wenn eine neue Periode gestartet wurde
+    async reloadTemplate() {
+        await this.loadTemplateAssignments();
+        this.renderSupervisionAreas();
     }
 
     switchLocation(location) {
@@ -350,7 +342,7 @@ class AdminApp {
     }
 
     createTransposedTable(area) {
-        const weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
+        const weekdays = AdminApp.WEEKDAYS;
         
         // Filter time slots to only show available ones for this area
         const availableTimeSlots = this.timeSlots.filter(timeSlot => 
@@ -378,38 +370,38 @@ class AdminApp {
         `;
     }
 
-    createDayRow(area, dayName, availableTimeSlots) {
+    createDayRow(area, day, availableTimeSlots) {
         return `
             <tr>
-                <td class="day-header">${dayName}</td>
-                ${availableTimeSlots.map(timeSlot => 
-                    this.createTimeSlotCell(area, dayName, timeSlot)
+                <td class="day-header">${day.name}</td>
+                ${availableTimeSlots.map(timeSlot =>
+                    this.createTimeSlotCell(area, day.day, timeSlot)
                 ).join('')}
             </tr>
         `;
     }
 
-    createTimeSlotCell(area, dayName, timeSlot) {
-        const assignments = this.templateAssignments[dayName][area.id] ? 
-            (this.templateAssignments[dayName][area.id][timeSlot.id] || []) : [];
+    createTimeSlotCell(area, weekday, timeSlot) {
+        const byWeekday = this.templateAssignments[weekday] || {};
+        const assignments = byWeekday[area.id] ? (byWeekday[area.id][timeSlot.id] || []) : [];
         
         if (area.supervision_count === 1) {
             // Single supervision slot
             const assignment = assignments.find(a => a.supervision_number === 1);
-            return `<td>${this.createSupervisionSlot(area, dayName, timeSlot, 1, assignment)}</td>`;
+            return `<td>${this.createSupervisionSlot(area, weekday, timeSlot, 1, assignment)}</td>`;
         } else {
             // Multiple supervision slots
             const slots = Array.from({ length: area.supervision_count }, (_, index) => {
                 const supervisionNumber = index + 1;
                 const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                return this.createSupervisionSlot(area, dayName, timeSlot, supervisionNumber, assignment);
+                return this.createSupervisionSlot(area, weekday, timeSlot, supervisionNumber, assignment);
             });
             
             return `<td><div class="multiple-slots">${slots.join('')}</div></td>`;
         }
     }
 
-    createSupervisionSlot(area, dayName, timeSlot, supervisionNumber, assignment) {
+    createSupervisionSlot(area, weekday, timeSlot, supervisionNumber, assignment) {
         const isEmpty = !assignment;
         const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
         const content = isEmpty ? 'Leer' : AdminApp.escapeHtml(assignment.teacher_name);
@@ -417,7 +409,7 @@ class AdminApp {
         const dataAttributes = [
             `data-area-id="${area.id}"`,
             `data-time-slot-id="${timeSlot.id}"`,
-            `data-day="${dayName}"`,
+            `data-weekday="${weekday}"`,
             `data-supervision-number="${supervisionNumber}"`
         ];
 
@@ -453,7 +445,7 @@ class AdminApp {
     handleSlotClick(slotElement) {
         const areaId = parseInt(slotElement.dataset.areaId);
         const timeSlotId = parseInt(slotElement.dataset.timeSlotId);
-        const dayName = slotElement.dataset.day;
+        const weekday = parseInt(slotElement.dataset.weekday);
         const supervisionNumber = parseInt(slotElement.dataset.supervisionNumber);
         const assignmentId = slotElement.dataset.assignmentId;
         const teacherId = slotElement.dataset.teacherId;
@@ -465,7 +457,7 @@ class AdminApp {
         this.currentAssignmentContext = {
             areaId,
             timeSlotId,
-            dayName,
+            weekday,
             supervisionNumber,
             assignmentId: assignmentId ? parseInt(assignmentId) : null,
             teacherId: teacherId ? parseInt(teacherId) : null,
@@ -484,7 +476,7 @@ class AdminApp {
         // Update modal info
         document.getElementById('modalAreaName').textContent = context.area.name;
         document.getElementById('modalTimeSlot').textContent = context.timeSlot.display_name;
-        document.getElementById('modalDay').textContent = context.dayName;
+        document.getElementById('modalDay').textContent = AdminApp.weekdayName(context.weekday);
         document.getElementById('modalSupervisionNumber').textContent = context.supervisionNumber;
 
         // Reset form
@@ -599,23 +591,12 @@ class AdminApp {
                 locationInfo = ` (${conflict.conflictLocation})`;
             }
             
-            const message = `${this.selectedTeacher.name} hat bereits eine Aufsicht am ${context.dayName} ${timeSlot.display_name} im Bereich "${conflictArea.name}"${locationInfo}. Möchten Sie trotzdem fortfahren?`;
+            const message = `${this.selectedTeacher.name} hat bereits eine Aufsicht am ${AdminApp.weekdayName(context.weekday)} ${timeSlot.display_name} im Bereich "${conflictArea.name}"${locationInfo}. Möchten Sie trotzdem fortfahren?`;
             
             if (!await this.showConfirmation(message)) {
                 return;
             }
         }
-
-        // For template assignments, we need to create/update assignments for the current week
-        // Get current Monday to create actual date
-        const today = new Date();
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - today.getDay() + 1);
-        
-        const dayIndex = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'].indexOf(context.dayName);
-        const targetDate = new Date(monday);
-        targetDate.setDate(monday.getDate() + dayIndex);
-        const dateStr = targetDate.toISOString().split('T')[0];
 
         this.hideTeacherModal();
         context.slotElement.classList.add('updating');
@@ -642,7 +623,7 @@ class AdminApp {
                 requestData = {
                     areaId: context.areaId,
                     timeSlotId: context.timeSlotId,
-                    date: dateStr,
+                    weekday: context.weekday,
                     teacherId: this.selectedTeacher.id,
                     supervisionNumber: context.supervisionNumber
                 };
@@ -733,18 +714,18 @@ class AdminApp {
 
     updateTemplateAssignments(context, assignment) {
         // Update the template assignments data structure
-        if (!this.templateAssignments[context.dayName]) {
-            this.templateAssignments[context.dayName] = {};
+        if (!this.templateAssignments[context.weekday]) {
+            this.templateAssignments[context.weekday] = {};
         }
-        if (!this.templateAssignments[context.dayName][context.areaId]) {
-            this.templateAssignments[context.dayName][context.areaId] = {};
+        if (!this.templateAssignments[context.weekday][context.areaId]) {
+            this.templateAssignments[context.weekday][context.areaId] = {};
         }
-        if (!this.templateAssignments[context.dayName][context.areaId][context.timeSlotId]) {
-            this.templateAssignments[context.dayName][context.areaId][context.timeSlotId] = [];
+        if (!this.templateAssignments[context.weekday][context.areaId][context.timeSlotId]) {
+            this.templateAssignments[context.weekday][context.areaId][context.timeSlotId] = [];
         }
 
         // Remove existing assignment with same supervision number
-        const assignments = this.templateAssignments[context.dayName][context.areaId][context.timeSlotId];
+        const assignments = this.templateAssignments[context.weekday][context.areaId][context.timeSlotId];
         const existingIndex = assignments.findIndex(a => a.supervision_number === context.supervisionNumber);
         if (existingIndex >= 0) {
             assignments.splice(existingIndex, 1);
@@ -755,11 +736,11 @@ class AdminApp {
     }
 
     removeFromTemplateAssignments(context) {
-        if (this.templateAssignments[context.dayName] && 
-            this.templateAssignments[context.dayName][context.areaId] && 
-            this.templateAssignments[context.dayName][context.areaId][context.timeSlotId]) {
+        if (this.templateAssignments[context.weekday] && 
+            this.templateAssignments[context.weekday][context.areaId] && 
+            this.templateAssignments[context.weekday][context.areaId][context.timeSlotId]) {
             
-            const assignments = this.templateAssignments[context.dayName][context.areaId][context.timeSlotId];
+            const assignments = this.templateAssignments[context.weekday][context.areaId][context.timeSlotId];
             const index = assignments.findIndex(a => a.supervision_number === context.supervisionNumber);
             if (index >= 0) {
                 assignments.splice(index, 1);
@@ -769,8 +750,8 @@ class AdminApp {
 
     checkSchedulingConflict(teacherId, context) {
         // Check if the teacher already has an assignment at the same time slot on the same day
-        const dayAssignments = this.templateAssignments[context.dayName];
-        
+        const dayAssignments = this.templateAssignments[context.weekday];
+
         if (!dayAssignments) return null;
         
         // Check all areas for this day and time slot
@@ -860,20 +841,6 @@ class AdminApp {
         this.renderAvailabilityMatrix();
     }
 
-    // Wochenbereich der aktuellen Vorlage (Montag bis Freitag) — gleiche
-    // Logik wie loadTemplateAssignments
-    getTemplateWeekRange() {
-        const today = new Date();
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - today.getDay() + 1);
-        const friday = new Date(monday);
-        friday.setDate(monday.getDate() + 4);
-        return {
-            startDate: monday.toISOString().split('T')[0],
-            endDate: friday.toISOString().split('T')[0]
-        };
-    }
-
     toggleStatsSection() {
         const statsContent = document.getElementById('statsContent');
         const toggleBtn = document.getElementById('toggleStatsBtn');
@@ -895,8 +862,7 @@ class AdminApp {
         summary.textContent = '';
 
         try {
-            const { startDate, endDate } = this.getTemplateWeekRange();
-            const response = await fetch(`/api/admin/teacher-stats?startDate=${startDate}&endDate=${endDate}`);
+            const response = await fetch('/api/admin/teacher-stats');
 
             if (!response.ok) {
                 throw new Error('Failed to load teacher stats');
@@ -1112,45 +1078,34 @@ class AdminApp {
     }
 
     async handleResetSupervisions() {
-        const message = 'Möchten Sie wirklich ALLE Aufsichtszuweisungen zurücksetzen? Diese Aktion kann nicht rückgängig gemacht werden!';
-        
+        const message = 'Möchten Sie eine NEUE Planungsperiode starten? Die Wochenvorlage ist danach leer; die bisherigen Zuweisungen bleiben unter der alten Periode archiviert.';
+
         if (!await this.showConfirmation(message)) {
             return;
         }
 
         try {
             this.showLoading(true);
-            
-            const response = await fetch('/api/admin/reset-supervisions', {
-                method: 'DELETE',
+
+            const response = await fetch('/api/admin/periods', {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({})
             });
 
             if (response.ok) {
                 const result = await response.json();
-                
-                // Clear template assignments
-                this.templateAssignments = {
-                    'Montag': {},
-                    'Dienstag': {},
-                    'Mittwoch': {},
-                    'Donnerstag': {},
-                    'Freitag': {}
-                };
-                
-                // Re-render supervision areas to show empty slots
-                this.renderSupervisionAreas();
-                
+                await this.reloadTemplate();
                 this.showStatusMessage(result.message, 'success');
             } else {
                 const error = await response.json();
-                this.showStatusMessage(error.error || 'Fehler beim Zurücksetzen', 'error');
+                this.showStatusMessage(error.error || 'Fehler beim Starten der neuen Periode', 'error');
             }
         } catch (error) {
-            console.error('Error resetting supervisions:', error);
-            this.showStatusMessage('Verbindungsfehler beim Zurücksetzen', 'error');
+            console.error('Error starting new period:', error);
+            this.showStatusMessage('Verbindungsfehler beim Starten der neuen Periode', 'error');
         } finally {
             this.showLoading(false);
         }

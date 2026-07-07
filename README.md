@@ -157,12 +157,26 @@ Die folgenden Bereiche sind vorkonfiguriert:
 - **Session-Management**: Session-basierte Authentifizierung (`SESSION_SECRET` in der `.env`)
 - **Konfiguration**: Keine Zugangsdaten im Repository — alles über `.env` (nicht eingecheckt)
 
+## Datenmodell: Wochenvorlage & Planungsperioden
+
+Die Planung ist eine **Wochenvorlage**: Zuweisungen gelten pro Wochentag
+(Montag–Freitag) und wiederholen sich jede Woche. Jede Vorlage gehört zu
+einer **Planungsperiode** (z. B. Halbjahr):
+
+- Es ist immer genau eine Periode aktiv; alle Eintragungen landen dort.
+- „Neue Planungsperiode starten" (Admin-Panel) leert die Vorlage; die
+  Zuweisungen der alten Periode bleiben in der Datenbank archiviert.
+- Beim ersten Start nach dem Update werden vorhandene datumsbasierte
+  Zuweisungen automatisch migriert (pro Bereich/Zeitslot/Wochentag wird
+  der jüngste Eintrag übernommen).
+
 ## Datenbankstruktur
 
 - **teachers**: Verschlüsselte Lehrerdaten
 - **areas**: Aufsichtsbereiche mit Anzahl benötigter Aufsichten
 - **time_slots**: Pausenzeiten mit Anzeigereihenfolge
-- **supervision_assignments**: Zuweisungen mit Zeitstempel
+- **planning_periods**: Planungsperioden (genau eine aktiv)
+- **supervision_assignments**: Zuweisungen pro Periode, Bereich, Zeitslot und Wochentag
 
 ## Troubleshooting
 

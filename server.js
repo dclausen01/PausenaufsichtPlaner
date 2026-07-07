@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const database = require('./config/database');
 const Teacher = require('./models/Teacher');
 const Assignment = require('./models/Assignment');
+const PlanningPeriod = require('./models/PlanningPeriod');
 const { LdapAuthenticator, ldapConfigFromEnv } = require('./auth/ldap');
 
 const app = express();
@@ -398,39 +399,38 @@ app.put('/api/availability/:areaId/:timeSlotId', requireAdminAuth, async (req, r
     }
 });
 
-// Assignments API
-app.get('/api/assignments/schedule', requireAuth, async (req, res) => {
+// Assignments API — Wochenvorlage der aktiven Planungsperiode
+app.get('/api/assignments/template', requireAuth, async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
-        
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'Start date and end date are required' });
+        const period = await PlanningPeriod.getActive();
+        if (!period) {
+            return res.status(500).json({ error: 'Keine aktive Planungsperiode vorhanden' });
         }
-        
-        const schedule = await Assignment.getScheduleMatrix(startDate, endDate);
-        res.json(schedule);
+
+        const template = await Assignment.getTemplateMatrix(period.id);
+        template.period = period;
+        res.json(template);
     } catch (error) {
-        console.error('Error getting schedule:', error);
-        res.status(500).json({ error: 'Failed to get schedule' });
+        console.error('Error getting template:', error);
+        res.status(500).json({ error: 'Failed to get template' });
     }
 });
 
 // Eigene Aufsichten der angemeldeten Lehrkraft ("Meine Aufsichten")
 app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection, async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
-
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'Start date and end date are required' });
-        }
-
         if (!req.session.selectedTeacherId) {
             // Admins ohne zugeordnete Lehrkraft (Legacy-Modus) haben keine eigenen Aufsichten
             return res.json([]);
         }
 
+        const period = await PlanningPeriod.getActive();
+        if (!period) {
+            return res.json([]);
+        }
+
         const assignments = await Assignment.getTeacherAssignments(
-            req.session.selectedTeacherId, startDate, endDate
+            req.session.selectedTeacherId, period.id
         );
         res.json(assignments);
     } catch (error) {
@@ -441,17 +441,29 @@ app.get('/api/assignments/my-assignments', requireAuth, requireTeacherSelection,
 
 app.post('/api/assignments', requireAuth, requireTeacherSelection, canModifyTeacherAssignment, async (req, res) => {
     try {
-        const { areaId, timeSlotId, date, teacherId, supervisionNumber } = req.body;
+        const { areaId, timeSlotId, weekday, teacherId, supervisionNumber } = req.body;
 
-        if (!areaId || !timeSlotId || !date || !teacherId) {
+        if (!areaId || !timeSlotId || !weekday || !teacherId) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const assignment = await Assignment.create(areaId, timeSlotId, date, teacherId, supervisionNumber);
-        
+        const weekdayNum = parseInt(weekday);
+        if (!(weekdayNum >= 1 && weekdayNum <= 5)) {
+            return res.status(400).json({ error: 'Wochentag muss zwischen 1 (Montag) und 5 (Freitag) liegen' });
+        }
+
+        const period = await PlanningPeriod.getActive();
+        if (!period) {
+            return res.status(500).json({ error: 'Keine aktive Planungsperiode vorhanden' });
+        }
+
+        const assignment = await Assignment.create(
+            period.id, areaId, timeSlotId, weekdayNum, teacherId, supervisionNumber
+        );
+
         // Emit real-time update
         io.emit('assignmentCreated', assignment);
-        
+
         res.json(assignment);
     } catch (error) {
         console.error('Error creating assignment:', error);
@@ -637,20 +649,19 @@ app.put('/api/admin/areas/:id/supervision-count', requireAdminAuth, async (req, 
 // Mutterschutz) und darf nicht im Kollegium sichtbar sein.
 app.get('/api/admin/teacher-stats', requireAdminAuth, async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
-
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'Start date and end date are required' });
+        const period = await PlanningPeriod.getActive();
+        if (!period) {
+            return res.json([]);
         }
 
         const stats = await database.query(`
             SELECT t.id, t.name, COUNT(sa.id) as assignment_count
             FROM teachers t
             LEFT JOIN supervision_assignments sa
-                ON sa.teacher_id = t.id AND sa.date >= ? AND sa.date <= ?
+                ON sa.teacher_id = t.id AND sa.period_id = ?
             GROUP BY t.id, t.name
             ORDER BY assignment_count ASC, t.name COLLATE NOCASE
-        `, [startDate, endDate]);
+        `, [period.id]);
 
         res.json(stats);
     } catch (error) {
@@ -659,27 +670,37 @@ app.get('/api/admin/teacher-stats', requireAdminAuth, async (req, res) => {
     }
 });
 
-// Reset all supervisions endpoint
-app.delete('/api/admin/reset-supervisions', requireAdminAuth, async (req, res) => {
+// Planungsperioden: Liste (Archiv) und Start einer neuen Periode.
+// Ersetzt das frühere "Alle Aufsichten zurücksetzen" — die Zuweisungen der
+// alten Periode bleiben erhalten.
+app.get('/api/admin/periods', requireAdminAuth, async (req, res) => {
     try {
-        console.log('Admin requested to reset all supervisions');
-        
-        // Delete all supervision assignments
-        const result = await database.run('DELETE FROM supervision_assignments');
-        
-        console.log(`Deleted ${result.changes} supervision assignments`);
-        
-        // Emit real-time update to all connected clients
-        io.emit('supervisionsReset', { message: 'All supervisions have been reset' });
-        
-        res.json({ 
-            success: true, 
-            message: `Successfully reset all supervisions (${result.changes} assignments removed)`,
-            deletedCount: result.changes
+        const periods = await PlanningPeriod.list();
+        res.json(periods);
+    } catch (error) {
+        console.error('Error listing periods:', error);
+        res.status(500).json({ error: 'Failed to list periods' });
+    }
+});
+
+app.post('/api/admin/periods', requireAdminAuth, async (req, res) => {
+    try {
+        const { name } = req.body || {};
+        const period = await PlanningPeriod.create(name);
+
+        console.log(`Neue Planungsperiode gestartet: "${period.name}" (id ${period.id})`);
+
+        // Alle Clients informieren: Vorlage ist jetzt leer (neue Periode)
+        io.emit('periodStarted', { period });
+
+        res.json({
+            success: true,
+            period,
+            message: `Neue Planungsperiode "${period.name}" gestartet — die Vorlage ist jetzt leer`
         });
     } catch (error) {
-        console.error('Error resetting supervisions:', error);
-        res.status(500).json({ error: 'Failed to reset supervisions' });
+        console.error('Error creating period:', error);
+        res.status(500).json({ error: 'Failed to create period' });
     }
 });
 
@@ -764,13 +785,80 @@ async function updateDatabaseSchema() {
             );
             console.log('RD 0/1/2 supervision count updated successfully');
         }
-        
+
+        // Migration: datumsbasierte Zuweisungen -> Wochenvorlage.
+        // Altes Schema hatte eine date-Spalte; das neue arbeitet mit
+        // weekday (1=Mo … 5=Fr) und period_id.
+        await migrateAssignmentsToWeekdays();
+
+        // Es muss immer eine aktive Planungsperiode geben
+        await PlanningPeriod.ensureActive();
+
         console.log('Database schema update completed');
         
     } catch (error) {
         console.error('Error updating database schema:', error);
         throw error;
     }
+}
+
+/**
+ * Einmalige Migration vom alten datumsbasierten Schema zur Wochenvorlage.
+ * Pro (Bereich, Zeitslot, Wochentag, Aufsichtsnummer) wird der Eintrag mit
+ * dem jüngsten Datum übernommen; alle Altdaten landen in der ersten
+ * Planungsperiode. Wochenend-Einträge werden verworfen.
+ */
+async function migrateAssignmentsToWeekdays() {
+    const tableInfo = await database.query("PRAGMA table_info(supervision_assignments)");
+    const hasDateColumn = tableInfo.some(column => column.name === 'date');
+    if (!hasDateColumn) return; // schon migriert bzw. Neuinstallation
+
+    console.log('Migriere Aufsichtszuweisungen von Datumsbasis auf Wochenvorlage...');
+
+    const period = await PlanningPeriod.ensureActive();
+
+    await database.run(`
+        CREATE TABLE supervision_assignments_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            period_id INTEGER NOT NULL,
+            area_id INTEGER NOT NULL,
+            time_slot_id INTEGER NOT NULL,
+            weekday INTEGER NOT NULL,
+            teacher_id INTEGER NOT NULL,
+            supervision_number INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (period_id) REFERENCES planning_periods (id),
+            FOREIGN KEY (area_id) REFERENCES areas (id),
+            FOREIGN KEY (time_slot_id) REFERENCES time_slots (id),
+            FOREIGN KEY (teacher_id) REFERENCES teachers (id),
+            UNIQUE(period_id, area_id, time_slot_id, weekday, supervision_number)
+        )
+    `);
+
+    // Pro Slot+Wochentag den jüngsten Eintrag übernehmen (strftime('%w'):
+    // 0=Sonntag … 6=Samstag, wir behalten 1-5)
+    const result = await database.run(`
+        INSERT OR IGNORE INTO supervision_assignments_new
+            (period_id, area_id, time_slot_id, weekday, teacher_id, supervision_number, created_at, updated_at)
+        SELECT ?, sa.area_id, sa.time_slot_id,
+               CAST(strftime('%w', sa.date) AS INTEGER),
+               sa.teacher_id, sa.supervision_number, sa.created_at, sa.updated_at
+        FROM supervision_assignments sa
+        WHERE CAST(strftime('%w', sa.date) AS INTEGER) BETWEEN 1 AND 5
+          AND sa.date = (
+              SELECT MAX(sa2.date) FROM supervision_assignments sa2
+              WHERE sa2.area_id = sa.area_id
+                AND sa2.time_slot_id = sa.time_slot_id
+                AND sa2.supervision_number = sa.supervision_number
+                AND strftime('%w', sa2.date) = strftime('%w', sa.date)
+          )
+    `, [period.id]);
+
+    await database.run('DROP TABLE supervision_assignments');
+    await database.run('ALTER TABLE supervision_assignments_new RENAME TO supervision_assignments');
+
+    console.log(`Migration abgeschlossen: ${result.changes} Zuweisungen in die Wochenvorlage übernommen (Periode "${period.name}")`);
 }
 
 // Graceful shutdown
