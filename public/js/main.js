@@ -10,6 +10,19 @@ class PausenaufsichtApp {
             .replaceAll("'", '&#39;');
     }
 
+    static WEEKDAYS = [
+        { day: 1, name: 'Montag', short: 'Mo' },
+        { day: 2, name: 'Dienstag', short: 'Di' },
+        { day: 3, name: 'Mittwoch', short: 'Mi' },
+        { day: 4, name: 'Donnerstag', short: 'Do' },
+        { day: 5, name: 'Freitag', short: 'Fr' }
+    ];
+
+    static weekdayName(weekday) {
+        const entry = PausenaufsichtApp.WEEKDAYS.find(w => w.day === parseInt(weekday));
+        return entry ? entry.name : '';
+    }
+
     constructor() {
         this.authenticated = false;
         this.isAdmin = false;
@@ -45,7 +58,6 @@ class PausenaufsichtApp {
         if (this.authenticated) {
             window.wsManager.connect();
             this.showApp();
-            this.setDefaultDates();
             await this.loadInitialData();
         } else {
             this.showLogin();
@@ -202,8 +214,7 @@ class PausenaufsichtApp {
                 this.selectedTeacherId = data.selectedTeacher ? data.selectedTeacher.id : null;
 
                 this.showApp();
-                this.setDefaultDates();
-                await this.loadInitialData();
+                    await this.loadInitialData();
                 window.wsManager.connect();
 
                 // Nur im Legacy-Modus muss das Kürzel noch gewählt werden —
@@ -267,16 +278,6 @@ class PausenaufsichtApp {
         }
     }
 
-    setDefaultDates() {
-        // Set up 8-week planning period automatically
-        const today = new Date();
-        const eightWeeksLater = new Date(today);
-        eightWeeksLater.setDate(today.getDate() + 56); // 8 weeks = 56 days
-
-        this.startDate = today.toISOString().split('T')[0];
-        this.endDate = eightWeeksLater.toISOString().split('T')[0];
-    }
-
     async loadInitialData() {
         try {
             // Load teachers, areas, time slots, and availability settings
@@ -321,29 +322,20 @@ class PausenaufsichtApp {
     }
 
     async loadSchedule() {
-        // Use the automatically set date range
-        const startDate = this.startDate;
-        const endDate = this.endDate;
-
-        if (!startDate || !endDate) {
-            this.showStatusMessage('Fehler beim Festlegen des Planungszeitraums', 'error');
-            return;
-        }
-
         this.showLoading(true);
 
         try {
-            const response = await fetch(`/api/assignments/schedule?startDate=${startDate}&endDate=${endDate}`);
-            
+            const response = await fetch('/api/assignments/template');
+
             if (!response.ok) {
-                throw new Error('Failed to load schedule');
+                throw new Error('Failed to load template');
             }
 
             this.currentSchedule = await response.json();
             this.renderSchedule();
         } catch (error) {
-            console.error('Error loading schedule:', error);
-            this.showStatusMessage('Fehler beim Laden des Stundenplans', 'error');
+            console.error('Error loading template:', error);
+            this.showStatusMessage('Fehler beim Laden der Wochenvorlage', 'error');
         } finally {
             this.showLoading(false);
         }
@@ -371,8 +363,8 @@ class PausenaufsichtApp {
         const container = document.getElementById('scheduleGrid');
         container.innerHTML = '';
 
-        if (!this.currentSchedule || !this.currentSchedule.dates.length) {
-            container.innerHTML = '<p>Keine Daten für den ausgewählten Zeitraum gefunden.</p>';
+        if (!this.currentSchedule) {
+            container.innerHTML = '<p>Keine Daten gefunden.</p>';
             return;
         }
 
@@ -395,7 +387,7 @@ class PausenaufsichtApp {
         document.getElementById('scheduleContainer').classList.remove('hidden');
     }
 
-    createSupervisionSlot(area, timeSlot, date, supervisionNumber, assignment) {
+    createSupervisionSlot(area, timeSlot, weekday, supervisionNumber, assignment) {
         const isEmpty = !assignment;
         const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
         const content = isEmpty ? 'Leer' : PausenaufsichtApp.escapeHtml(assignment.teacher_name);
@@ -403,7 +395,7 @@ class PausenaufsichtApp {
         const dataAttributes = [
             `data-area-id="${area.id}"`,
             `data-time-slot-id="${timeSlot.id}"`,
-            `data-date="${date}"`,
+            `data-weekday="${weekday}"`,
             `data-supervision-number="${supervisionNumber}"`
         ];
 
@@ -422,7 +414,7 @@ class PausenaufsichtApp {
     handleSlotClick(slotElement) {
         const areaId = parseInt(slotElement.dataset.areaId);
         const timeSlotId = parseInt(slotElement.dataset.timeSlotId);
-        const date = slotElement.dataset.date;
+        const weekday = parseInt(slotElement.dataset.weekday);
         const supervisionNumber = parseInt(slotElement.dataset.supervisionNumber);
         const assignmentId = slotElement.dataset.assignmentId;
         const teacherId = slotElement.dataset.teacherId;
@@ -434,7 +426,7 @@ class PausenaufsichtApp {
         this.currentAssignmentContext = {
             areaId,
             timeSlotId,
-            date,
+            weekday,
             supervisionNumber,
             assignmentId: assignmentId ? parseInt(assignmentId) : null,
             teacherId: teacherId ? parseInt(teacherId) : null,
@@ -462,7 +454,7 @@ class PausenaufsichtApp {
         // Update modal info
         document.getElementById('modalAreaName').textContent = context.area.name;
         document.getElementById('modalTimeSlot').textContent = context.timeSlot.display_name;
-        document.getElementById('modalDate').textContent = new Date(context.date).toLocaleDateString('de-DE');
+        document.getElementById('modalDay').textContent = PausenaufsichtApp.weekdayName(context.weekday);
         document.getElementById('modalSupervisionNumber').textContent = context.supervisionNumber;
 
         // Reset form - but don't reset selectedTeacher yet
@@ -631,7 +623,7 @@ class PausenaufsichtApp {
         if (conflict) {
             const conflictArea = this.areas.find(a => a.id === conflict.areaId);
             const timeSlot = this.timeSlots.find(ts => ts.id === context.timeSlotId);
-            const dayName = this.getDayName(context.date);
+            const dayName = PausenaufsichtApp.weekdayName(context.weekday);
             
             // Include location information in the conflict message
             let locationInfo = '';
@@ -688,7 +680,7 @@ class PausenaufsichtApp {
                 requestData = {
                     areaId: context.areaId,
                     timeSlotId: context.timeSlotId,
-                    date: context.date,
+                    weekday: context.weekday,
                     teacherId: selectedTeacherId,
                     supervisionNumber: context.supervisionNumber
                 };
@@ -825,33 +817,30 @@ class PausenaufsichtApp {
     createAreaTemplateView(area) {
         const areaDiv = document.createElement('div');
         areaDiv.className = 'area-template-view';
-        
-        // Get a sample Monday from the schedule to use as template
-        const sampleMonday = this.findSampleMonday();
-        
+
+        const periodName = this.currentSchedule.period ? this.currentSchedule.period.name : '';
+
         areaDiv.innerHTML = `
             <div class="area-header" data-location="${area.location}">
                 <h3>${PausenaufsichtApp.escapeHtml(area.name)} (${area.supervision_count} Aufsicht${area.supervision_count > 1 ? 'en' : ''})</h3>
-                <p class="template-note">Wochenvorlage - gilt für alle Wochen</p>
+                <p class="template-note">Wochenvorlage – gilt für alle Wochen${periodName ? ' · ' + PausenaufsichtApp.escapeHtml(periodName) : ''}</p>
             </div>
             <div class="template-container">
-                ${this.createTemplateGrid(area, sampleMonday)}
-                ${this.createMobileCarousel(area, sampleMonday)}
+                ${this.createTemplateGrid(area)}
+                ${this.createMobileCarousel(area)}
             </div>
         `;
-        
+
         return areaDiv;
     }
 
-    createMobileCarousel(area, sampleDate) {
-        const weekdays = [
-            { name: 'Montag', short: 'Mo' },
-            { name: 'Dienstag', short: 'Di' },
-            { name: 'Mittwoch', short: 'Mi' },
-            { name: 'Donnerstag', short: 'Do' },
-            { name: 'Freitag', short: 'Fr' }
-        ];
+    getAssignmentsFor(weekday, areaId, timeSlotId) {
+        const byWeekday = this.currentSchedule.assignments[weekday];
+        if (!byWeekday || !byWeekday[areaId]) return [];
+        return byWeekday[areaId][timeSlotId] || [];
+    }
 
+    createMobileCarousel(area) {
         return `
             <div class="mobile-day-carousel">
                 <div class="mobile-day-navigation">
@@ -860,25 +849,19 @@ class PausenaufsichtApp {
                     <button class="mobile-day-nav-btn" onclick="app.navigateMobileDay('${area.id}', 1)">›</button>
                 </div>
                 <div class="mobile-day-content" id="mobile-day-content-${area.id}">
-                    ${weekdays.map((day, dayIndex) => 
-                        this.createMobileDayGrid(area, sampleDate, day, dayIndex)
+                    ${PausenaufsichtApp.WEEKDAYS.map((day, dayIndex) =>
+                        this.createMobileDayGrid(area, day, dayIndex)
                     ).join('')}
                 </div>
             </div>
         `;
     }
 
-    createMobileDayGrid(area, sampleDate, day, dayIndex) {
-        // Calculate the date for this day of the week
-        const baseDate = new Date(sampleDate);
-        const targetDate = new Date(baseDate);
-        targetDate.setDate(baseDate.getDate() + dayIndex);
-        const dateStr = targetDate.toISOString().split('T')[0];
-
+    createMobileDayGrid(area, day, dayIndex) {
         const isVisible = dayIndex === 0 ? '' : 'style="display: none;"';
 
         // Filter time slots to only show available ones for this area
-        const availableTimeSlots = this.currentSchedule.timeSlots.filter(timeSlot => 
+        const availableTimeSlots = this.currentSchedule.timeSlots.filter(timeSlot =>
             this.isAreaTimeSlotAvailable(area.id, timeSlot.id)
         );
 
@@ -887,17 +870,15 @@ class PausenaufsichtApp {
                 <div class="time-column-header">Zeit</div>
                 <div class="day-column-header">${day.name}</div>
                 ${availableTimeSlots.map(timeSlot => {
-                    const assignments = this.currentSchedule.assignments[dateStr] ? 
-                        (this.currentSchedule.assignments[dateStr][area.id] ? 
-                            (this.currentSchedule.assignments[dateStr][area.id][timeSlot.id] || []) : []) : [];
-                    
+                    const assignments = this.getAssignmentsFor(day.day, area.id, timeSlot.id);
+
                     return `
                         <div class="time-cell">${timeSlot.display_name}</div>
                         <div class="day-cell">
                             ${Array.from({ length: area.supervision_count }, (_, index) => {
                                 const supervisionNumber = index + 1;
                                 const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                                return this.createSupervisionSlot(area, timeSlot, dateStr, supervisionNumber, assignment);
+                                return this.createSupervisionSlot(area, timeSlot, day.day, supervisionNumber, assignment);
                             }).join('')}
                         </div>
                     `;
@@ -946,70 +927,40 @@ class PausenaufsichtApp {
         nextBtn.disabled = false;
     }
 
-    findSampleMonday() {
-        // Find the first Monday in our date range to use as template
-        for (const dateStr of this.currentSchedule.dates) {
-            const date = new Date(dateStr);
-            if (date.getDay() === 1) { // Monday
-                return dateStr;
-            }
-        }
-        // Fallback: use first available date
-        return this.currentSchedule.dates[0];
-    }
-
-    createTemplateGrid(area, sampleDate) {
-        const weekdays = [
-            { name: 'Montag', short: 'Mo' },
-            { name: 'Dienstag', short: 'Di' },
-            { name: 'Mittwoch', short: 'Mi' },
-            { name: 'Donnerstag', short: 'Do' },
-            { name: 'Freitag', short: 'Fr' }
-        ];
-        
+    createTemplateGrid(area) {
         return `
             <div class="template-grid">
                 <div class="template-grid-header">
                     <div class="time-column-header">Zeit</div>
-                    ${weekdays.map(day => 
+                    ${PausenaufsichtApp.WEEKDAYS.map(day =>
                         `<div class="day-column-header">${day.name}<br><span class="day-short">${day.short}</span></div>`
                     ).join('')}
                 </div>
-                ${this.currentSchedule.timeSlots.map(timeSlot => this.createTemplateTimeRow(area, timeSlot, sampleDate, weekdays)).join('')}
+                ${this.currentSchedule.timeSlots.map(timeSlot => this.createTemplateTimeRow(area, timeSlot)).join('')}
             </div>
         `;
     }
 
-    createTemplateTimeRow(area, timeSlot, sampleDate, weekdays) {
+    createTemplateTimeRow(area, timeSlot) {
         // Check if this area-timeslot combination is available
-        const isAvailable = this.isAreaTimeSlotAvailable(area.id, timeSlot.id);
-        if (!isAvailable) {
+        if (!this.isAreaTimeSlotAvailable(area.id, timeSlot.id)) {
             return ''; // Don't render unavailable time slots
         }
-        
+
         return `
             <div class="template-time-row">
                 <div class="time-cell-header">
                     <div class="time-name">${timeSlot.display_name}</div>
                 </div>
-                ${weekdays.map((day, dayIndex) => {
-                    // Calculate the date for this day of the week
-                    const baseDate = new Date(sampleDate);
-                    const targetDate = new Date(baseDate);
-                    targetDate.setDate(baseDate.getDate() + dayIndex);
-                    const dateStr = targetDate.toISOString().split('T')[0];
-                    
-                    // Use assignments from the calculated date if available
-                    const assignments = this.currentSchedule.assignments[dateStr] ? 
-                        (this.currentSchedule.assignments[dateStr][area.id] ? 
-                            (this.currentSchedule.assignments[dateStr][area.id][timeSlot.id] || []) : []) : [];
-                    
+                ${PausenaufsichtApp.WEEKDAYS.map(day => {
+                    const assignments = this.getAssignmentsFor(day.day, area.id, timeSlot.id);
+
                     return `
                         <div class="day-cell">
                             ${Array.from({ length: area.supervision_count }, (_, index) => {
                                 const supervisionNumber = index + 1;
                                 const assignment = assignments.find(a => a.supervision_number === supervisionNumber);
-                                return this.createSupervisionSlot(area, timeSlot, dateStr, supervisionNumber, assignment);
+                                return this.createSupervisionSlot(area, timeSlot, day.day, supervisionNumber, assignment);
                             }).join('')}
                         </div>
                     `;
@@ -1025,103 +976,27 @@ class PausenaufsichtApp {
     }
 
     checkSchedulingConflict(teacherId, context) {
-        // Check if the teacher already has an assignment at the same time slot on the same day
-        const targetDate = context.date;
-        const targetTimeSlotId = context.timeSlotId;
-        const targetAreaId = context.areaId;
-        
-        
-        // 1. Check exact date conflicts (same date, same time slot, ANY area, ANY location)
-        if (this.currentSchedule.assignments[targetDate]) {
-            // Check ALL areas across ALL locations, not just current location
-            for (const area of this.currentSchedule.areas) {
-                // Skip if no assignments for this area on this date
-                if (!this.currentSchedule.assignments[targetDate][area.id]) {
-                    continue;
-                }
-                
-                const assignments = this.currentSchedule.assignments[targetDate][area.id][targetTimeSlotId] || [];
-                
-                for (const assignment of assignments) {
-                    if (assignment.teacher_id === teacherId) {
-                        // Skip if this is the same assignment we're editing
-                        if (context.assignmentId && assignment.id === context.assignmentId) {
-                            continue;
-                        }
-                        
-                        // Found a direct conflict on the same date and time slot
-                        const conflictLocation = area.location || 'Unbekannt';
-                        const targetLocation = this.areas.find(a => a.id === targetAreaId)?.location || 'Unbekannt';
-                        
-                        
-                        return {
-                            areaId: area.id,
-                            date: targetDate,
-                            timeSlotId: targetTimeSlotId,
-                            assignmentId: assignment.id,
-                            conflictType: 'exact_date',
-                            conflictLocation: conflictLocation
-                        };
-                    }
-                }
-            }
-        }
-        
-        // 2. Check recurring conflicts (same day of week, same time slot, different weeks)
-        const targetDayOfWeek = new Date(targetDate).getDay();
-        const conflicts = [];
-        
-        for (const dateStr of this.currentSchedule.dates) {
-            // Skip the target date as we already checked it above
-            if (dateStr === targetDate) {
-                continue;
-            }
-            
-            const date = new Date(dateStr);
-            if (date.getDay() !== targetDayOfWeek) {
-                continue; // Skip different days of week
-            }
-            
-            // Check all areas for this date and time slot
-            for (const area of this.currentSchedule.areas) {
-                if (!this.currentSchedule.assignments[dateStr] || !this.currentSchedule.assignments[dateStr][area.id]) {
-                    continue;
-                }
-                
-                const assignments = this.currentSchedule.assignments[dateStr][area.id][targetTimeSlotId] || [];
-                
-                for (const assignment of assignments) {
-                    if (assignment.teacher_id === teacherId) {
-                        // Skip if this is the same assignment we're editing
-                        if (context.assignmentId && assignment.id === context.assignmentId) {
-                            continue;
-                        }
-                        
-                        // Found a recurring conflict
-                        conflicts.push({
-                            areaId: area.id,
-                            date: dateStr,
-                            timeSlotId: targetTimeSlotId,
-                            assignmentId: assignment.id,
-                            conflictType: 'recurring'
-                        });
-                    }
-                }
-            }
-        }
-        
-        // Return the first recurring conflict if any
-        if (conflicts.length > 0) {
-            return conflicts[0];
-        }
-        
-        return null;
-    }
+        // Hat die Lehrkraft am selben Wochentag im selben Zeitslot schon
+        // eine Aufsicht (egal in welchem Bereich/Standort)?
+        for (const area of this.currentSchedule.areas) {
+            const assignments = this.getAssignmentsFor(context.weekday, area.id, context.timeSlotId);
 
-    getDayName(dateStr) {
-        const date = new Date(dateStr);
-        const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-        return dayNames[date.getDay()];
+            for (const assignment of assignments) {
+                if (assignment.teacher_id !== teacherId) continue;
+                // Skip if this is the same assignment we're editing
+                if (context.assignmentId && assignment.id === context.assignmentId) continue;
+
+                return {
+                    areaId: area.id,
+                    weekday: context.weekday,
+                    timeSlotId: context.timeSlotId,
+                    assignmentId: assignment.id,
+                    conflictLocation: area.location || 'Unbekannt'
+                };
+            }
+        }
+
+        return null;
     }
 
     showStatusMessage(message, type = 'info') {
@@ -1269,11 +1144,7 @@ class PausenaufsichtApp {
         modal.classList.remove('hidden');
 
         try {
-            // Use the same date range as the main schedule
-            const startDate = this.startDate;
-            const endDate = this.endDate;
-
-            const response = await fetch(`/api/assignments/my-assignments?startDate=${startDate}&endDate=${endDate}`);
+            const response = await fetch('/api/assignments/my-assignments');
             
             if (!response.ok) {
                 throw new Error('Failed to load assignments');
@@ -1290,49 +1161,27 @@ class PausenaufsichtApp {
 
     renderMyAssignments(assignments) {
         const tableBody = document.getElementById('myAssignmentsTable').querySelector('tbody');
-        
+
         if (assignments.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="4">Keine Aufsichten gefunden</td></tr>';
             return;
         }
 
-        // Sort assignments by date
-        assignments.sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Nach Wochentag und Zeitslot sortieren
+        assignments.sort((a, b) => a.weekday - b.weekday || a.sort_order - b.sort_order);
 
-        // Group assignments by date for better organization
-        const assignmentsByDate = {};
-        assignments.forEach(assignment => {
-            if (!assignmentsByDate[assignment.date]) {
-                assignmentsByDate[assignment.date] = [];
-            }
-            assignmentsByDate[assignment.date].push(assignment);
-        });
-
-        // Render assignments
         let html = '';
-        Object.keys(assignmentsByDate).forEach(date => {
-            const dateAssignments = assignmentsByDate[date];
-            const dateObj = new Date(date);
-            const dateStr = dateObj.toLocaleDateString('de-DE', { 
-                weekday: 'long'
-            });
-            
-            dateAssignments.forEach(assignment => {
-                // Find area and time slot info
-                const area = this.areas.find(a => a.id === assignment.area_id);
-                const timeSlot = this.timeSlots.find(ts => ts.id === assignment.time_slot_id);
-                
-                html += `
-                    <tr>
-                        <td>${dateStr}</td>
-                        <td>${PausenaufsichtApp.escapeHtml(area ? area.name : 'Unbekannt')}</td>
-                        <td>${timeSlot ? timeSlot.display_name : 'Unbekannt'}</td>
-                        <td>${assignment.supervision_number}. Aufsicht</td>
-                    </tr>
-                `;
-            });
+        assignments.forEach(assignment => {
+            html += `
+                <tr>
+                    <td>${PausenaufsichtApp.weekdayName(assignment.weekday)}</td>
+                    <td>${PausenaufsichtApp.escapeHtml(assignment.area_name || 'Unbekannt')}</td>
+                    <td>${assignment.time_slot_display || 'Unbekannt'}</td>
+                    <td>${assignment.supervision_number}. Aufsicht</td>
+                </tr>
+            `;
         });
-        
+
         tableBody.innerHTML = html;
     }
 

@@ -50,20 +50,31 @@ class Database {
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )`,
                 
-                // Supervision assignments table
+                // Planungsperioden (z. B. Halbjahre) — genau eine ist aktiv
+                `CREATE TABLE IF NOT EXISTS planning_periods (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )`,
+
+                // Supervision assignments: Wochenvorlage pro Planungsperiode
+                // (weekday 1=Montag … 5=Freitag statt konkreter Daten)
                 `CREATE TABLE IF NOT EXISTS supervision_assignments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    period_id INTEGER NOT NULL,
                     area_id INTEGER NOT NULL,
                     time_slot_id INTEGER NOT NULL,
-                    date TEXT NOT NULL,
+                    weekday INTEGER NOT NULL,
                     teacher_id INTEGER NOT NULL,
                     supervision_number INTEGER NOT NULL DEFAULT 1,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (period_id) REFERENCES planning_periods (id),
                     FOREIGN KEY (area_id) REFERENCES areas (id),
                     FOREIGN KEY (time_slot_id) REFERENCES time_slots (id),
                     FOREIGN KEY (teacher_id) REFERENCES teachers (id),
-                    UNIQUE(area_id, time_slot_id, date, supervision_number)
+                    UNIQUE(period_id, area_id, time_slot_id, weekday, supervision_number)
                 )`,
                 
                 // Area-timeslot availability table

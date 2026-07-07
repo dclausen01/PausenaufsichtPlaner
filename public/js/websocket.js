@@ -51,6 +51,17 @@ class WebSocketManager {
         this.socket.on('assignmentDeleted', (data) => {
             this.handleAssignmentDeleted(data);
         });
+
+        // Neue Planungsperiode: Vorlage ist leer — Ansicht neu laden
+        this.socket.on('periodStarted', (data) => {
+            this.showStatusMessage(`Neue Planungsperiode gestartet: ${data.period.name}`, 'info');
+            if (window.app && typeof window.app.loadSchedule === 'function') {
+                window.app.loadSchedule();
+            }
+            if (window.adminApp && typeof window.adminApp.reloadTemplate === 'function') {
+                window.adminApp.reloadTemplate();
+            }
+        });
     }
 
     scheduleReconnect() {
@@ -90,7 +101,7 @@ class WebSocketManager {
 
     updateScheduleSlot(assignment, action) {
         // Find the corresponding slot in the UI
-        const slotSelector = `[data-area-id="${assignment.area_id}"][data-time-slot-id="${assignment.time_slot_id}"][data-date="${assignment.date}"][data-supervision-number="${assignment.supervision_number}"]`;
+        const slotSelector = `[data-area-id="${assignment.area_id}"][data-time-slot-id="${assignment.time_slot_id}"][data-weekday="${assignment.weekday}"][data-supervision-number="${assignment.supervision_number}"]`;
         const slot = document.querySelector(slotSelector);
         
         if (slot) {
