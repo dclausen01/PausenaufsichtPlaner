@@ -27,10 +27,12 @@ Ein interaktives Webbasiertes System zur Planung von Pausenaufsichten in Schulen
    npm install
    ```
 
-2. **Lehrerdaten importieren**:
+2. **Konfiguration anlegen**:
 
-   - CSV-Datei `teacher.csv` im Hauptverzeichnis platzieren
-   - Format: `name;longName;foreName`
+   ```bash
+   cp .env.example .env
+   # Werte ausfüllen (LDAP-Zugang, SESSION_SECRET, ENCRYPTION_KEY, ADMIN_USERS)
+   ```
 
 3. **Server starten**:
 
@@ -44,10 +46,35 @@ Ein interaktives Webbasiertes System zur Planung von Pausenaufsichten in Schulen
 
 ## Konfiguration
 
-### Passwörter
+### Anmeldung (LDAP / Active Directory)
 
-- **Benutzer-Passwort**: `!gemeinsamzumerfolg!`
-- **Admin-Passwort**: `!gemeinsamzumerfolg!123`
+Die Anmeldung erfolgt mit dem persönlichen Schul-Login (AD-Kennung + Passwort)
+gegen das Active Directory. Sobald `LDAP_URL` in der `.env` gesetzt ist, ist
+der LDAP-Modus aktiv:
+
+- Lehrkräfte werden **beim ersten Login automatisch angelegt** (Kürzel =
+  AD-Kennung, Anzeigename aus dem AD). Eine `teacher.csv` wird nicht mehr
+  benötigt.
+- Jede Lehrkraft ist durch die Anmeldung eindeutig identifiziert — die
+  frühere Kürzel-Auswahl entfällt.
+- **Admin-Rechte** erhalten die in `ADMIN_USERS` (Komma-getrennt)
+  eingetragenen Kennungen.
+- Empfohlen ist der **Direkt-Bind** (`LDAP_BIND_USER_TEMPLATE`, z. B.
+  `SNRD\{{username}}`) — dann ist kein Service-Account nötig. Alternativ
+  Service-Account über `LDAP_BIND_DN`/`LDAP_BIND_PW`.
+
+Alle Variablen sind in `.env.example` dokumentiert. Zum Testen der
+LDAP-Verbindung (direkt auf dem Server, ohne Webserver):
+
+```bash
+npm run ldap-test -- <benutzername> <passwort>
+```
+
+### Legacy-Modus (ohne LDAP)
+
+Ist `LDAP_URL` nicht gesetzt, läuft der bisherige Modus mit gemeinsamem
+Passwort (`USER_PASSWORD` / `ADMIN_PASSWORD` in der `.env`) und
+anschließender Kürzel-Auswahl — gedacht für lokale Entwicklung und Tests.
 
 ### Aufsichtsbereiche
 
@@ -81,7 +108,7 @@ Die folgenden Bereiche sind vorkonfiguriert:
 1. **Dateien hochladen**:
 
    - Alle Projektdateien in das Webverzeichnis kopieren
-   - `teacher.csv` mit Lehrerdaten hinzufügen
+   - `.env` mit LDAP-Zugangsdaten anlegen (siehe `.env.example`)
 
 2. **Node.js konfigurieren**:
 
@@ -108,7 +135,7 @@ Die folgenden Bereiche sind vorkonfiguriert:
 
 ### Für Lehrkräfte
 
-1. **Anmelden**: Passwort eingeben
+1. **Anmelden**: Mit Schul-Login (Benutzername + Passwort) anmelden
 2. **Zeitraum wählen**: Start- und Enddatum auswählen
 3. **Aufsichten zuweisen**:
    - Auf leere (rote) Zellen klicken
@@ -118,17 +145,17 @@ Die folgenden Bereiche sind vorkonfiguriert:
 
 ### Für Administratoren
 
-1. **Admin-Anmeldung**: Passwort eingeben + "Admin-Zugang" aktivieren
+1. **Admin-Anmeldung**: Mit Schul-Login anmelden (Kennung muss in `ADMIN_USERS` stehen)
 2. **Statistiken**: Übersicht über Zuweisungen und offene Aufsichten
 3. **CSV-Export**: Aufsichtspläne für gewählten Zeitraum exportieren
 4. **Lehrkräfte-Übersicht**: Anzahl Zuweisungen pro Lehrkraft
 
 ## Sicherheit
 
-- **Verschlüsselung**: Lehrerdaten werden mit AES-256 verschlüsselt
-- **Session-Management**: Sichere Session-basierte Authentifizierung
-- **Input-Validierung**: Schutz vor SQL-Injection und XSS
-- **Passwort-Hashing**: SHA-256 Hashing für Passwort-Verifikation
+- **Authentifizierung**: LDAP-Bind gegen das Active Directory (persönliche Zugangsdaten, keine Passwort-Speicherung in der Anwendung)
+- **Verschlüsselung**: Lehrerdaten werden mit AES-256 verschlüsselt (Schlüssel über `ENCRYPTION_KEY` in der `.env`)
+- **Session-Management**: Session-basierte Authentifizierung (`SESSION_SECRET` in der `.env`)
+- **Konfiguration**: Keine Zugangsdaten im Repository — alles über `.env` (nicht eingecheckt)
 
 ## Datenbankstruktur
 
@@ -145,11 +172,17 @@ Die folgenden Bereiche sind vorkonfiguriert:
 - Node.js-Version prüfen (empfohlen: 18+)
 - Abhängigkeiten neu installieren: `npm install`
 
+### Anmeldung schlägt fehl (LDAP)
+
+- LDAP-Verbindung direkt testen: `npm run ldap-test -- <benutzername> <passwort>`
+- `LDAP_URL` erreichbar? (Firewall, Port 636 bei ldaps://)
+- Bei interner CA: `LDAP_TLS_CA_PFAD` auf die CA-PEM-Datei setzen
+- `LDAP_BIND_USER_TEMPLATE` prüfen (NetBIOS-Domäne bzw. UPN-Suffix korrekt?)
+
 ### Keine Lehrerdaten
 
-- CSV-Datei `teacher.csv` im Hauptverzeichnis prüfen
-- Format: `name;longName;foreName` (Semikolon-getrennt)
-- Server neu starten nach CSV-Hinzufügung
+- Lehrkräfte werden beim ersten LDAP-Login automatisch angelegt —
+  ein separater Import ist nicht mehr nötig
 
 ### WebSocket-Verbindung fehlgeschlagen
 

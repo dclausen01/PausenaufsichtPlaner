@@ -1,77 +1,7 @@
 const database = require('../config/database');
 const encryption = require('../config/encryption');
-const fs = require('fs');
-const csv = require('csv-parser');
 
 class Teacher {
-    static async importFromCSV(csvFilePath) {
-        return new Promise((resolve, reject) => {
-            const teachers = [];
-            
-            console.log(`Starting CSV import from: ${csvFilePath}`);
-            
-            fs.createReadStream(csvFilePath)
-                .pipe(csv({ separator: ';' }))
-                .on('data', (row) => {
-                    console.log('CSV row data:', row);
-                    
-                    // Handle BOM character in the first column name
-                    const nameKey = row.name ? 'name' : (row['﻿name'] ? '﻿name' : null);
-                    
-                    if (nameKey && row[nameKey] && row.longName && row.foreName) {
-                        teachers.push({
-                            name: row[nameKey].trim(),
-                            longName: row.longName.trim(),
-                            foreName: row.foreName.trim()
-                        });
-                    } else {
-                        console.log('Skipping row due to missing data:', row);
-                    }
-                })
-                .on('end', async () => {
-                    try {
-                        console.log(`Parsed ${teachers.length} teachers from CSV`);
-                        let imported = 0;
-                        let skipped = 0;
-                        
-                        for (const teacher of teachers) {
-                            const encryptedData = encryption.encryptTeacherData({
-                                longName: teacher.longName,
-                                foreName: teacher.foreName
-                            });
-                            
-                            try {
-                                const result = await database.run(
-                                    'INSERT OR IGNORE INTO teachers (name, encrypted_data) VALUES (?, ?)',
-                                    [teacher.name, encryptedData]
-                                );
-                                
-                                if (result.changes > 0) {
-                                    imported++;
-                                    console.log(`Imported teacher: ${teacher.name}`);
-                                } else {
-                                    skipped++;
-                                    console.log(`Skipped existing teacher: ${teacher.name}`);
-                                }
-                            } catch (err) {
-                                console.error(`Error importing teacher ${teacher.name}:`, err);
-                            }
-                        }
-                        
-                        console.log(`Import complete: ${imported} imported, ${skipped} skipped`);
-                        resolve(imported);
-                    } catch (error) {
-                        console.error('Error during CSV import:', error);
-                        reject(error);
-                    }
-                })
-                .on('error', (error) => {
-                    console.error('CSV parsing error:', error);
-                    reject(error);
-                });
-        });
-    }
-
     static async getAll() {
         try {
             const rows = await database.query('SELECT * FROM teachers ORDER BY name');
@@ -129,6 +59,65 @@ class Teacher {
             };
         } catch (error) {
             console.error('Error getting teacher by name:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Zerlegt einen AD-Anzeigenamen (displayName) best effort in Vor- und
+     * Nachname. Unterstützt "Nachname, Vorname" und "Vorname Nachname".
+     */
+    static parseDisplayName(displayName) {
+        if (!displayName) return { longName: '', foreName: '' };
+
+        if (displayName.includes(',')) {
+            const [longName, foreName] = displayName.split(',').map(s => s.trim());
+            return { longName: longName || '', foreName: foreName || '' };
+        }
+
+        const parts = displayName.trim().split(/\s+/);
+        if (parts.length > 1) {
+            return {
+                longName: parts[parts.length - 1],
+                foreName: parts.slice(0, -1).join(' ')
+            };
+        }
+        return { longName: displayName.trim(), foreName: '' };
+    }
+
+    /**
+     * Findet die Lehrkraft zur LDAP-Kennung (loginSub = Kürzel) oder legt sie
+     * beim ersten Login automatisch an. Der Anzeigename aus dem AD wird dabei
+     * übernommen bzw. aktualisiert — eine CSV-Pflege ist nicht mehr nötig.
+     */
+    static async findOrCreateByLogin(loginSub, displayName) {
+        try {
+            const existing = await this.getByName(loginSub);
+            const parsed = this.parseDisplayName(displayName);
+
+            if (existing) {
+                // Name aus dem AD aktualisieren, falls geliefert und abweichend
+                if (displayName &&
+                    (existing.longName !== parsed.longName || existing.foreName !== parsed.foreName)) {
+                    const encryptedData = encryption.encryptTeacherData(parsed);
+                    await database.run(
+                        'UPDATE teachers SET encrypted_data = ? WHERE id = ?',
+                        [encryptedData, existing.id]
+                    );
+                    return { ...existing, ...parsed };
+                }
+                return existing;
+            }
+
+            const encryptedData = encryption.encryptTeacherData(parsed);
+            const result = await database.run(
+                'INSERT INTO teachers (name, encrypted_data) VALUES (?, ?)',
+                [loginSub, encryptedData]
+            );
+            console.log(`Neue Lehrkraft aus LDAP-Login angelegt: ${loginSub}`);
+            return await this.getById(result.id);
+        } catch (error) {
+            console.error('Error finding/creating teacher by login:', error);
             throw error;
         }
     }
