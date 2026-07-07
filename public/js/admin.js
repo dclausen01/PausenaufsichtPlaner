@@ -156,6 +156,59 @@ class AdminApp {
         document.getElementById('toggleStatsBtn').addEventListener('click', () => {
             this.toggleStatsSection();
         });
+
+        // Tauschangebot anbieten/zurückziehen
+        const offerBtn = document.getElementById('offerAssignment');
+        if (offerBtn) {
+            offerBtn.addEventListener('click', () => {
+                this.toggleOffer();
+            });
+        }
+
+        // Druck-/PDF-Export der Wochenvorlage
+        document.getElementById('printScheduleBtn').addEventListener('click', () => {
+            this.printSchedule();
+        });
+    }
+
+    printSchedule() {
+        window.openSchedulePrint({
+            location: this.currentLocation,
+            periodName: this.currentPeriod ? this.currentPeriod.name : '',
+            areas: this.areas,
+            timeSlots: this.timeSlots,
+            assignments: this.templateAssignments,
+            isAvailable: (areaId, timeSlotId) => this.isAreaTimeSlotAvailable(areaId, timeSlotId)
+        });
+    }
+
+    async toggleOffer() {
+        const context = this.currentAssignmentContext;
+        if (!context || !context.assignmentId) return;
+
+        const wasOffered = context.offered;
+        this.hideTeacherModal();
+
+        try {
+            const response = await fetch(`/api/assignments/${context.assignmentId}/offer`, {
+                method: wasOffered ? 'DELETE' : 'POST'
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                this.showStatusMessage(
+                    wasOffered ? 'Tauschangebot zurückgezogen' : 'Aufsicht zum Tausch angeboten',
+                    'success'
+                );
+            } else {
+                this.showStatusMessage(data.error || 'Fehler beim Tauschangebot', 'error');
+            }
+        } catch (error) {
+            console.error('Error toggling offer:', error);
+            this.showStatusMessage('Verbindungsfehler', 'error');
+        } finally {
+            await this.reloadTemplate();
+        }
     }
 
     async handleLogin() {
@@ -403,8 +456,11 @@ class AdminApp {
 
     createSupervisionSlot(area, weekday, timeSlot, supervisionNumber, assignment) {
         const isEmpty = !assignment;
-        const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
-        const content = isEmpty ? 'Leer' : AdminApp.escapeHtml(assignment.teacher_name);
+        const isOffered = Boolean(assignment && assignment.offered_at);
+        let className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
+        if (isOffered) className += ' offered';
+        const name = isEmpty ? 'Leer' : AdminApp.escapeHtml(assignment.teacher_name);
+        const content = isOffered ? `${name} 🔁` : name;
         
         const dataAttributes = [
             `data-area-id="${area.id}"`,
@@ -416,6 +472,9 @@ class AdminApp {
         if (assignment) {
             dataAttributes.push(`data-assignment-id="${assignment.id}"`);
             dataAttributes.push(`data-teacher-id="${assignment.teacher_id}"`);
+            if (isOffered) {
+                dataAttributes.push('data-offered="1"');
+            }
         }
 
         return `
@@ -449,6 +508,7 @@ class AdminApp {
         const supervisionNumber = parseInt(slotElement.dataset.supervisionNumber);
         const assignmentId = slotElement.dataset.assignmentId;
         const teacherId = slotElement.dataset.teacherId;
+        const offered = slotElement.dataset.offered === '1';
 
         // Find area and time slot info
         const area = this.areas.find(a => a.id === areaId);
@@ -461,6 +521,7 @@ class AdminApp {
             supervisionNumber,
             assignmentId: assignmentId ? parseInt(assignmentId) : null,
             teacherId: teacherId ? parseInt(teacherId) : null,
+            offered,
             area,
             timeSlot,
             slotElement
@@ -484,6 +545,17 @@ class AdminApp {
         document.getElementById('teacherResults').innerHTML = '';
         document.getElementById('confirmAssignment').disabled = true;
         this.selectedTeacher = null;
+
+        // Tausch-Button: Admin darf jede bestehende Aufsicht anbieten/zurückziehen
+        const offerBtn = document.getElementById('offerAssignment');
+        if (offerBtn) {
+            if (context.assignmentId) {
+                offerBtn.classList.remove('hidden');
+                offerBtn.textContent = context.offered ? 'Angebot zurückziehen' : 'Zum Tausch anbieten';
+            } else {
+                offerBtn.classList.add('hidden');
+            }
+        }
 
         // Show/hide remove button
         const removeBtn = document.getElementById('removeAssignment');

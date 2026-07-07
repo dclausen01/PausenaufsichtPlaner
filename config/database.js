@@ -68,6 +68,7 @@ class Database {
                     weekday INTEGER NOT NULL,
                     teacher_id INTEGER NOT NULL,
                     supervision_number INTEGER NOT NULL DEFAULT 1,
+                    offered_at DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (period_id) REFERENCES planning_periods (id),

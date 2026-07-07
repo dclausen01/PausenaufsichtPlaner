@@ -157,6 +157,19 @@ Die folgenden Bereiche sind vorkonfiguriert:
 - **Session-Management**: Session-basierte Authentifizierung (`SESSION_SECRET` in der `.env`)
 - **Konfiguration**: Keine Zugangsdaten im Repository — alles über `.env` (nicht eingecheckt)
 
+## Tauschbörse
+
+Kolleg:innen können eigene Aufsichten **zum Tausch anbieten** (Klick auf die
+eigene Aufsicht → „Zum Tausch anbieten"). Angebotene Aufsichten sind im Plan
+gelb markiert (🔁) und erscheinen in der **Tauschbörse** (Button im
+Kopfbereich). Wer übernehmen möchte, klickt das Angebot an und bestätigt —
+die Aufsicht wechselt sofort, alle offenen Browser aktualisieren sich live.
+Angebote lassen sich jederzeit zurückziehen; Admins können jede Aufsicht
+anbieten bzw. Angebote zurückziehen.
+
+Hinweis: Nach der Übertragung nach UNTIS sind Tausche im Tool nicht mehr
+automatisch dort abgebildet — Änderungen dann auch in UNTIS nachziehen.
+
 ## Datenmodell: Wochenvorlage & Planungsperioden
 
 Die Planung ist eine **Wochenvorlage**: Zuweisungen gelten pro Wochentag

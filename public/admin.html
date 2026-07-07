@@ -144,6 +144,13 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
+        .supervision-slot.offered {
+            background: #fff3cd;
+            color: #8a6d3b;
+            border: 2px dashed #f0ad4e;
+            font-style: italic;
+        }
+
         .supervision-slot.updating {
             opacity: 0.6;
             pointer-events: none;
@@ -519,6 +526,7 @@
                         </select>
                     </div>
                     <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button id="printScheduleBtn" class="btn-secondary">🖨️ Drucken/PDF</button>
                         <button id="resetSupervisionBtn" class="btn-danger" style="background: #ff9800;">Neue Planungsperiode starten</button>
                         <span id="userInfo">Admin-Modus</span>
                         <button id="logoutBtn" class="btn-danger">Abmelden</button>
@@ -611,6 +619,7 @@
                     <div class="modal-actions">
                         <button id="confirmAssignment" class="btn-primary" disabled>Zuweisen</button>
                         <button id="cancelAssignment" class="btn-secondary">Abbrechen</button>
+                        <button id="offerAssignment" class="btn-secondary hidden">Zum Tausch anbieten</button>
                         <button id="removeAssignment" class="btn-danger hidden">Entfernen</button>
                     </div>
                 </div>
@@ -640,6 +649,7 @@
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/websocket.js"></script>
+    <script src="js/print.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>

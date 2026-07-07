@@ -55,13 +55,33 @@ class WebSocketManager {
         // Neue Planungsperiode: Vorlage ist leer — Ansicht neu laden
         this.socket.on('periodStarted', (data) => {
             this.showStatusMessage(`Neue Planungsperiode gestartet: ${data.period.name}`, 'info');
-            if (window.app && typeof window.app.loadSchedule === 'function') {
-                window.app.loadSchedule();
-            }
-            if (window.adminApp && typeof window.adminApp.reloadTemplate === 'function') {
-                window.adminApp.reloadTemplate();
-            }
+            this.refreshViews();
         });
+
+        // Tauschbörse-Events
+        this.socket.on('assignmentOffered', (assignment) => {
+            this.showStatusMessage(`${assignment.teacher_name} bietet eine Aufsicht zum Tausch an (${assignment.area_name})`, 'info');
+            this.refreshViews();
+        });
+
+        this.socket.on('assignmentOfferWithdrawn', () => {
+            this.refreshViews();
+        });
+
+        this.socket.on('assignmentTaken', (data) => {
+            this.showStatusMessage(`${data.assignment.teacher_name} hat die Aufsicht von ${data.previousTeacherName} übernommen`, 'info');
+            this.refreshViews();
+        });
+    }
+
+    // Vorlage in Haupt- bzw. Admin-Ansicht neu laden
+    refreshViews() {
+        if (window.app && typeof window.app.loadSchedule === 'function') {
+            window.app.loadSchedule();
+        }
+        if (window.adminApp && typeof window.adminApp.reloadTemplate === 'function') {
+            window.adminApp.reloadTemplate();
+        }
     }
 
     scheduleReconnect() {

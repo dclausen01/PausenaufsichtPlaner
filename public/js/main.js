@@ -178,6 +178,24 @@ class PausenaufsichtApp {
             this.printAssignments();
         });
 
+        // Tauschbörse
+        document.getElementById('offersBtn').addEventListener('click', () => {
+            this.showOffers();
+        });
+
+        // Druck-/PDF-Export der Wochenvorlage
+        document.getElementById('printScheduleBtn').addEventListener('click', () => {
+            this.printSchedule();
+        });
+
+        document.getElementById('closeOffersModal').addEventListener('click', () => {
+            document.getElementById('offersModal').classList.add('hidden');
+        });
+
+        document.getElementById('offerAssignment').addEventListener('click', () => {
+            this.toggleOffer();
+        });
+
         // Close modals when clicking outside
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -389,8 +407,11 @@ class PausenaufsichtApp {
 
     createSupervisionSlot(area, timeSlot, weekday, supervisionNumber, assignment) {
         const isEmpty = !assignment;
-        const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
-        const content = isEmpty ? 'Leer' : PausenaufsichtApp.escapeHtml(assignment.teacher_name);
+        const isOffered = Boolean(assignment && assignment.offered_at);
+        let className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
+        if (isOffered) className += ' offered';
+        const name = isEmpty ? 'Leer' : PausenaufsichtApp.escapeHtml(assignment.teacher_name);
+        const content = isOffered ? `${name} 🔁` : name;
         
         const dataAttributes = [
             `data-area-id="${area.id}"`,
@@ -402,6 +423,9 @@ class PausenaufsichtApp {
         if (assignment) {
             dataAttributes.push(`data-assignment-id="${assignment.id}"`);
             dataAttributes.push(`data-teacher-id="${assignment.teacher_id}"`);
+            if (isOffered) {
+                dataAttributes.push('data-offered="1"');
+            }
         }
 
         return `
@@ -418,6 +442,7 @@ class PausenaufsichtApp {
         const supervisionNumber = parseInt(slotElement.dataset.supervisionNumber);
         const assignmentId = slotElement.dataset.assignmentId;
         const teacherId = slotElement.dataset.teacherId;
+        const offered = slotElement.dataset.offered === '1';
 
         // Find area and time slot info
         const area = this.areas.find(a => a.id === areaId);
@@ -430,6 +455,7 @@ class PausenaufsichtApp {
             supervisionNumber,
             assignmentId: assignmentId ? parseInt(assignmentId) : null,
             teacherId: teacherId ? parseInt(teacherId) : null,
+            offered,
             area,
             timeSlot,
             slotElement
@@ -442,6 +468,19 @@ class PausenaufsichtApp {
         const modal = document.getElementById('teacherModal');
         const context = this.currentAssignmentContext;
 
+        // Fremde, zum Tausch angebotene Aufsicht: Übernahme-Dialog statt Modal
+        if (!this.isAdmin && context.assignmentId && context.offered &&
+            context.teacherId !== this.selectedTeacherId) {
+            this.handleTakeOffer({
+                assignmentId: context.assignmentId,
+                weekday: context.weekday,
+                timeSlotId: context.timeSlotId,
+                areaId: context.areaId,
+                ownerTeacherId: context.teacherId
+            });
+            return;
+        }
+
         // Check if user can modify this assignment (for standard users)
         if (!this.isAdmin && this.teacherSelected) {
             // For existing assignments, check if it belongs to the selected teacher
@@ -449,6 +488,15 @@ class PausenaufsichtApp {
                 this.showStatusMessage('Sie können nur Ihre eigenen Aufsichten bearbeiten', 'error');
                 return;
             }
+        }
+
+        // Tausch-Button: für eigene Aufsichten (bzw. alle als Admin)
+        const offerBtn = document.getElementById('offerAssignment');
+        if (context.assignmentId && (this.isAdmin || context.teacherId === this.selectedTeacherId)) {
+            offerBtn.classList.remove('hidden');
+            offerBtn.textContent = context.offered ? 'Angebot zurückziehen' : 'Zum Tausch anbieten';
+        } else {
+            offerBtn.classList.add('hidden');
         }
 
         // Update modal info
@@ -1177,7 +1225,7 @@ class PausenaufsichtApp {
                     <td>${PausenaufsichtApp.weekdayName(assignment.weekday)}</td>
                     <td>${PausenaufsichtApp.escapeHtml(assignment.area_name || 'Unbekannt')}</td>
                     <td>${assignment.time_slot_display || 'Unbekannt'}</td>
-                    <td>${assignment.supervision_number}. Aufsicht</td>
+                    <td>${assignment.supervision_number}. Aufsicht${assignment.offered_at ? ' · 🔁 angeboten' : ''}</td>
                 </tr>
             `;
         });
@@ -1187,6 +1235,171 @@ class PausenaufsichtApp {
 
     hideMyAssignmentsModal() {
         document.getElementById('myAssignmentsModal').classList.add('hidden');
+    }
+
+    // --- Tauschbörse ---
+
+    async toggleOffer() {
+        const context = this.currentAssignmentContext;
+        if (!context || !context.assignmentId) return;
+
+        const wasOffered = context.offered;
+        this.hideTeacherModal();
+
+        try {
+            const response = await fetch(`/api/assignments/${context.assignmentId}/offer`, {
+                method: wasOffered ? 'DELETE' : 'POST'
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                this.showStatusMessage(
+                    wasOffered ? 'Tauschangebot zurückgezogen' : 'Aufsicht zum Tausch angeboten',
+                    'success'
+                );
+            } else {
+                this.showStatusMessage(data.error || 'Fehler beim Tauschangebot', 'error');
+            }
+        } catch (error) {
+            console.error('Error toggling offer:', error);
+            this.showStatusMessage('Verbindungsfehler', 'error');
+        } finally {
+            await this.loadSchedule();
+        }
+    }
+
+    async handleTakeOffer(info) {
+        const dayName = PausenaufsichtApp.weekdayName(info.weekday);
+        const timeSlot = this.timeSlots.find(ts => ts.id === info.timeSlotId);
+        const area = this.areas.find(a => a.id === info.areaId);
+        const owner = this.teachers.find(t => t.id === info.ownerTeacherId);
+        const ownerName = owner ? owner.name : 'Kolleg:in';
+
+        let message = `Aufsicht von ${ownerName} am ${dayName} ${timeSlot ? timeSlot.display_name : ''} im Bereich "${area ? area.name : ''}" übernehmen?`;
+
+        // Warnen, falls die eigene Lehrkraft dort schon eingeteilt ist
+        const conflict = this.checkSchedulingConflict(this.selectedTeacherId, {
+            weekday: info.weekday,
+            timeSlotId: info.timeSlotId,
+            assignmentId: info.assignmentId
+        });
+        if (conflict) {
+            const conflictArea = this.areas.find(a => a.id === conflict.areaId);
+            message += ` Achtung: Sie haben am ${dayName} ${timeSlot ? timeSlot.display_name : ''} bereits eine Aufsicht im Bereich "${conflictArea ? conflictArea.name : ''}".`;
+        }
+
+        if (!await this.showConfirmation(message)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/assignments/${info.assignmentId}/take`, { method: 'POST' });
+            const data = await response.json();
+
+            if (response.ok) {
+                this.showStatusMessage(`Aufsicht von ${ownerName} übernommen`, 'success');
+            } else {
+                this.showStatusMessage(data.error || 'Übernahme fehlgeschlagen', 'error');
+            }
+        } catch (error) {
+            console.error('Error taking offer:', error);
+            this.showStatusMessage('Verbindungsfehler', 'error');
+        } finally {
+            await this.loadSchedule();
+            // Falls die Börsen-Liste offen ist: aktualisieren
+            if (!document.getElementById('offersModal').classList.contains('hidden')) {
+                this.loadOffers();
+            }
+        }
+    }
+
+    showOffers() {
+        document.getElementById('offersModal').classList.remove('hidden');
+        this.loadOffers();
+    }
+
+    async loadOffers() {
+        const tableBody = document.getElementById('offersTable').querySelector('tbody');
+        tableBody.innerHTML = '<tr><td colspan="6">Lade Angebote...</td></tr>';
+
+        try {
+            const response = await fetch('/api/assignments/offers');
+            if (!response.ok) throw new Error('Failed to load offers');
+
+            const offers = await response.json();
+            this.renderOffers(offers);
+        } catch (error) {
+            console.error('Error loading offers:', error);
+            tableBody.innerHTML = '<tr><td colspan="6">Fehler beim Laden der Angebote</td></tr>';
+        }
+    }
+
+    renderOffers(offers) {
+        const tableBody = document.getElementById('offersTable').querySelector('tbody');
+
+        if (offers.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6">Aktuell werden keine Aufsichten zum Tausch angeboten</td></tr>';
+            return;
+        }
+
+        tableBody.innerHTML = '';
+        offers.forEach(offer => {
+            const row = document.createElement('tr');
+            const isOwn = offer.teacher_id === this.selectedTeacherId;
+
+            row.innerHTML = `
+                <td>${PausenaufsichtApp.weekdayName(offer.weekday)}</td>
+                <td>${offer.time_slot_display}</td>
+                <td>${PausenaufsichtApp.escapeHtml(offer.area_name)}</td>
+                <td>${PausenaufsichtApp.escapeHtml(offer.location || '')}</td>
+                <td>${PausenaufsichtApp.escapeHtml(offer.teacher_name)}${isOwn ? ' (Sie)' : ''}</td>
+                <td></td>
+            `;
+
+            const actionCell = row.lastElementChild;
+            const button = document.createElement('button');
+            if (isOwn) {
+                button.className = 'btn-secondary';
+                button.textContent = 'Zurückziehen';
+                button.addEventListener('click', async () => {
+                    await fetch(`/api/assignments/${offer.id}/offer`, { method: 'DELETE' });
+                    this.showStatusMessage('Tauschangebot zurückgezogen', 'success');
+                    await this.loadSchedule();
+                    this.loadOffers();
+                });
+            } else {
+                button.className = 'btn-primary';
+                button.textContent = 'Übernehmen';
+                button.addEventListener('click', () => {
+                    this.handleTakeOffer({
+                        assignmentId: offer.id,
+                        weekday: offer.weekday,
+                        timeSlotId: offer.time_slot_id,
+                        areaId: offer.area_id,
+                        ownerTeacherId: offer.teacher_id
+                    });
+                });
+            }
+            actionCell.appendChild(button);
+
+            tableBody.appendChild(row);
+        });
+    }
+
+    printSchedule() {
+        if (!this.currentSchedule) {
+            this.showStatusMessage('Die Wochenvorlage ist noch nicht geladen', 'error');
+            return;
+        }
+
+        window.openSchedulePrint({
+            location: this.currentLocation,
+            periodName: this.currentSchedule.period ? this.currentSchedule.period.name : '',
+            areas: this.currentSchedule.areas,
+            timeSlots: this.currentSchedule.timeSlots,
+            assignments: this.currentSchedule.assignments,
+            isAvailable: (areaId, timeSlotId) => this.isAreaTimeSlotAvailable(areaId, timeSlotId)
+        });
     }
 
     printAssignments() {

@@ -1,4 +1,48 @@
-/* Reset and base styles */
+/* ==========================================================================
+   Pausenaufsicht Planer — Design-Tokens
+   ========================================================================== */
+:root {
+    /* Markenfarben */
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-soft: #eff6ff;
+    --accent-eck: #dc2626;          /* Standort Eckernförde */
+    --accent-eck-soft: #fef2f2;
+
+    /* Statusfarben */
+    --success: #16a34a;
+    --success-soft: #f0fdf4;
+    --success-border: #86efac;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --warning: #d97706;
+    --warning-soft: #fffbeb;
+    --warning-border: #fcd34d;
+
+    /* Oberfläche */
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --surface-muted: #f8fafc;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+
+    /* Text */
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+
+    /* Geometrie */
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.18);
+}
+
+/* ==========================================================================
+   Reset & Basis
+   ========================================================================== */
 * {
     margin: 0;
     padding: 0;
@@ -6,47 +50,62 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f5f5f5;
-    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Utility classes */
+/* Utility */
 .hidden {
     display: none !important;
 }
 
 .loading {
     text-align: center;
-    padding: 2rem;
-    font-size: 1.2rem;
-    color: #666;
+    padding: 3rem 2rem;
+    font-size: 1.05rem;
+    color: var(--text-muted);
 }
 
 .error-message {
-    color: #d32f2f;
+    color: var(--danger);
     font-size: 0.9rem;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
+    min-height: 1.2em;
 }
 
 .success-message {
-    color: #388e3c;
+    color: var(--success);
     font-size: 0.9rem;
     margin-top: 0.5rem;
 }
 
-/* Header */
+/* ==========================================================================
+   Header
+   ========================================================================== */
 header {
-    background: linear-gradient(135deg, #1976d2, #1565c0);
+    background: linear-gradient(135deg, #1e3a8a 0%, var(--primary) 100%);
     color: white;
-    padding: 1rem 2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.25rem 2rem 1rem;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 header h1 {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.9rem;
+}
+
+header h1::before {
+    content: '🕐 ';
+    font-size: 1.1rem;
 }
 
 .header-controls {
@@ -57,276 +116,307 @@ header h1 {
     gap: 1rem;
 }
 
+/* Standort-Umschalter als Segmented Control */
 .location-tabs {
-    display: flex;
-    gap: 0.5rem;
+    display: inline-flex;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 2px;
 }
 
 .location-tab {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: none;
+    padding: 0.45rem 1.2rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
 }
 
 .location-tab:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .location-tab.active {
     background: white;
-    color: #1976d2;
-    border-color: white;
+    color: var(--primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .location-tab.active[data-location="Eckernförde"] {
-    color: #d32f2f;
-}
-
-.date-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.date-controls label {
-    font-weight: 500;
-}
-
-.date-controls input {
-    padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.9rem;
-}
-
-.date-controls button {
-    background: #4caf50;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.2s;
-}
-
-.date-controls button:hover {
-    background: #45a049;
+    color: var(--accent-eck);
 }
 
 .user-controls {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.6rem;
 }
 
 #userInfo {
     font-weight: 500;
+    font-size: 0.9rem;
+    opacity: 0.95;
+    background: rgba(255, 255, 255, 0.14);
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    margin-right: 0.25rem;
+}
+
+/* Header-Buttons */
+.user-controls button {
+    padding: 0.45rem 1rem;
+    font-size: 0.9rem;
+    border-radius: var(--radius-sm);
+}
+
+.user-controls .btn-secondary {
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.user-controls .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 #logoutBtn {
-    background: #f44336;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-weight: 500;
-    transition: background-color 0.2s;
+    font-size: 0.9rem;
+    transition: all 0.2s;
 }
 
 #logoutBtn:hover {
-    background: #d32f2f;
-}
-
-.btn-secondary {
-    background: #6c757d;
+    background: var(--danger);
+    border-color: var(--danger);
     color: white;
 }
 
-.btn-secondary:hover {
-    background: #5a6268;
-}
-
-/* Main content */
+/* ==========================================================================
+   Hauptbereich
+   ========================================================================== */
 main {
     padding: 2rem;
-    max-width: 100%;
-    overflow-x: auto;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
-/* Schedule Grid */
 #scheduleGrid {
     display: grid;
-    gap: 2rem;
-    margin-top: 1rem;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
 }
 
-.schedule-day {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+/* Bereichs-Karte */
+.area-template-view {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
     overflow: hidden;
 }
 
-.day-header {
-    background: #e3f2fd;
-    padding: 1rem;
-    border-bottom: 1px solid #ddd;
+.area-template-view .area-header {
+    background: var(--surface-muted);
+    padding: 1rem 1.25rem;
+    border-left: 4px solid var(--primary);
+    border-bottom: 1px solid var(--border);
 }
 
-.day-header h3 {
-    color: #1976d2;
-    font-size: 1.2rem;
+.area-template-view .area-header[data-location="Eckernförde"] {
+    border-left-color: var(--accent-eck);
 }
 
-.day-content {
-    padding: 1rem;
-}
-
-.area-section {
-    margin-bottom: 2rem;
-}
-
-.area-section:last-child {
-    margin-bottom: 0;
-}
-
-.area-header {
-    background: #f8f9fa;
-    padding: 0.75rem;
-    border-left: 4px solid #1976d2;
-    margin-bottom: 1rem;
-}
-
-.area-header h4 {
-    color: #1976d2;
+.area-template-view .area-header h3 {
+    color: var(--primary);
     font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 0.15rem 0;
 }
 
-/* Eckernförde location styling (red theme) */
-.area-header[data-location="Eckernförde"] {
-    border-left-color: #d32f2f;
+.area-template-view .area-header[data-location="Eckernförde"] h3 {
+    color: var(--accent-eck);
 }
 
-.area-header[data-location="Eckernförde"] h4 {
-    color: #d32f2f;
+.template-note {
+    color: var(--text-faint);
+    font-size: 0.8rem;
+    margin: 0;
 }
 
-.day-header[data-location="Eckernförde"] {
-    background: #ffebee;
+.template-container {
+    padding: 1rem 1.25rem 1.25rem;
 }
 
-.day-header[data-location="Eckernförde"] h3 {
-    color: #d32f2f;
-}
-
-.time-slots {
+/* Wochenraster */
+.template-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: 110px repeat(5, 1fr);
+    gap: 4px;
 }
 
-.time-slot {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    overflow: hidden;
+.template-grid-header,
+.template-time-row {
+    display: contents;
 }
 
-.time-slot-header {
-    background: #f5f5f5;
-    padding: 0.5rem;
-    font-weight: 500;
-    font-size: 0.9rem;
+.day-column-header,
+.time-column-header {
+    background: transparent;
+    padding: 0.4rem 0.25rem;
+    font-weight: 600;
+    font-size: 0.82rem;
     text-align: center;
-    border-bottom: 1px solid #ddd;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
-.supervision-slots {
-    display: flex;
-    flex-direction: column;
+.day-short {
+    display: none;
 }
 
-.supervision-slot {
-    padding: 0.5rem;
-    min-height: 40px;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-    transition: all 0.2s;
+.time-cell-header {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 0.9rem;
 }
 
-.supervision-slot:last-child {
-    border-bottom: none;
+.time-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.day-cell,
+.time-cell {
+    background: transparent;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   Aufsichts-Slots
+   ========================================================================== */
+.supervision-slot {
+    padding: 0.45rem 0.5rem;
+    min-height: 40px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.88rem;
+    border-radius: var(--radius-sm);
+    flex: 1;
 }
 
 .supervision-slot.empty {
-    background-color: #ffebee;
-    color: #666;
-    border: 2px dashed #f44336;
+    background: var(--surface-muted);
+    color: var(--text-faint);
+    border: 1.5px dashed var(--border-strong);
+    font-size: 0.8rem;
 }
 
 .supervision-slot.empty:hover {
-    background-color: #ffcdd2;
-    border-color: #d32f2f;
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .supervision-slot.filled {
-    background-color: #e8f5e8;
-    color: #2e7d32;
-    border: 2px solid #4caf50;
-    font-weight: 500;
+    background: var(--success-soft);
+    color: #166534;
+    border: 1.5px solid var(--success-border);
+    font-weight: 600;
 }
 
 .supervision-slot.filled:hover {
-    background-color: #c8e6c9;
-    border-color: #388e3c;
+    background: #dcfce7;
+    border-color: var(--success);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Zum Tausch angeboten */
+.supervision-slot.filled.offered {
+    background: var(--warning-soft);
+    color: #92400e;
+    border: 1.5px dashed var(--warning-border);
+    font-style: normal;
+}
+
+.supervision-slot.filled.offered:hover {
+    background: #fef3c7;
+    border-color: var(--warning);
 }
 
 .supervision-slot.updating {
-    background-color: #fff3e0;
-    border-color: #ff9800;
-    opacity: 0.7;
+    opacity: 0.5;
+    pointer-events: none;
 }
 
-/* Modals */
+/* ==========================================================================
+   Modals
+   ========================================================================== */
 .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    padding: 1rem;
 }
 
 .modal-content {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    max-width: 500px;
-    width: 90%;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 520px;
+    width: 100%;
     max-height: 90vh;
     overflow-y: auto;
+    animation: modalIn 0.18s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #ddd;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -334,110 +424,174 @@ main {
 
 .modal-header h2,
 .modal-header h3 {
-    color: #1976d2;
+    color: var(--text);
+    font-size: 1.15rem;
+    font-weight: 700;
     margin: 0;
 }
 
 .close-btn {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     cursor: pointer;
-    color: #666;
+    color: var(--text-faint);
     padding: 0;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color 0.2s;
+    transition: all 0.15s;
 }
 
 .close-btn:hover {
-    background-color: #f5f5f5;
+    background: var(--surface-muted);
+    color: var(--text);
 }
 
 .modal-body {
     padding: 1.5rem;
 }
 
-/* Forms */
+/* Login-Modal: als eigene Seite gestalten */
+#loginModal {
+    background: linear-gradient(135deg, #1e3a8a 0%, var(--primary) 60%, #3b82f6 100%);
+    backdrop-filter: none;
+}
+
+#loginModal .modal-content {
+    max-width: 400px;
+    padding: 2.25rem 2rem 2rem;
+    text-align: left;
+}
+
+#loginModal h2 {
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+}
+
+#loginModal h2::before {
+    content: '🕐';
+    display: block;
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+}
+
+#loginModal form {
+    margin-top: 1.25rem;
+}
+
+#loginModal button[type="submit"] {
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    padding: 0.7rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+#loginModal button[type="submit"]:hover {
+    background: var(--primary-dark);
+}
+
+/* ==========================================================================
+   Formulare
+   ========================================================================== */
 .form-group {
     margin-bottom: 1rem;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #333;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text);
 }
 
 .form-group input[type="text"],
 .form-group input[type="password"] {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 0.65rem 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 1rem;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: var(--surface);
+    color: var(--text);
 }
 
 .form-group input[type="text"]:focus,
 .form-group input[type="password"]:focus {
     outline: none;
-    border-color: #1976d2;
-    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.form-group input[type="checkbox"] {
-    margin-right: 0.5rem;
-}
-
-/* Assignment Info */
+/* Zuweisungs-Info im Modal */
 .assignment-info {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 6px;
-    margin-bottom: 1.5rem;
+    background: var(--primary-soft);
+    border: 1px solid #bfdbfe;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1.25rem;
+    font-size: 0.92rem;
 }
 
 .assignment-info p {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }
 
 .assignment-info p:last-child {
     margin-bottom: 0;
 }
 
-/* Teacher Search */
+/* Lehrkraft-Suche */
 .teacher-search {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 .teacher-search input {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 0.65rem 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
     font-size: 1rem;
 }
 
+.teacher-search input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.teacher-search input:disabled {
+    background: var(--surface-muted);
+    color: var(--text-muted);
+}
+
 .teacher-results {
-    max-height: 200px;
+    max-height: 220px;
     overflow-y: auto;
-    border: 1px solid #ddd;
-    border-top: none;
-    border-radius: 0 0 4px 4px;
-    background: white;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    margin-top: 0.35rem;
+}
+
+.teacher-results:not(:empty) {
+    border: 1px solid var(--border);
 }
 
 .teacher-result {
-    padding: 0.75rem;
+    padding: 0.6rem 0.85rem;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
-    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.15s;
 }
 
 .teacher-result:last-child {
@@ -445,112 +599,124 @@ main {
 }
 
 .teacher-result:hover {
-    background-color: #f5f5f5;
+    background: var(--surface-muted);
 }
 
 .teacher-result.selected {
-    background-color: #e3f2fd;
-    color: #1976d2;
+    background: var(--primary-soft);
 }
 
 .teacher-name {
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.95rem;
 }
 
 .teacher-full-name {
-    font-size: 0.9rem;
-    color: #666;
-    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
 }
 
-/* Buttons */
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
 button {
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 0.95rem;
     cursor: pointer;
     border: none;
-    border-radius: 4px;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.2s;
-    font-weight: 500;
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 1.25rem;
+    transition: all 0.15s ease;
+    font-weight: 600;
+}
+
+button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
 
 .btn-primary {
-    background: #1976d2;
+    background: var(--primary);
     color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #1565c0;
+    background: var(--primary-dark);
 }
 
 .btn-primary:disabled {
-    background: #ccc;
+    background: var(--border-strong);
     cursor: not-allowed;
 }
 
 .btn-secondary {
-    background: #6c757d;
-    color: white;
+    background: var(--surface-muted);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
 }
 
 .btn-secondary:hover {
-    background: #5a6268;
+    background: var(--border);
 }
 
 .btn-danger {
-    background: #f44336;
+    background: var(--danger);
     color: white;
 }
 
 .btn-danger:hover {
-    background: #d32f2f;
+    background: #b91c1c;
 }
 
 .modal-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.6rem;
     justify-content: flex-end;
-    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
 }
 
-/* Status Messages */
+/* ==========================================================================
+   Status-Meldungen (Toasts)
+   ========================================================================== */
 #statusMessages {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 16px;
+    right: 16px;
     z-index: 2000;
-    max-width: 400px;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .status-message {
-    background: white;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    padding: 1rem;
-    margin-bottom: 0.5rem;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    padding: 0.8rem 1rem;
     border-left: 4px solid;
-    animation: slideIn 0.3s ease-out;
+    font-size: 0.9rem;
+    animation: slideIn 0.25s ease-out;
 }
 
 .status-message.success {
-    border-left-color: #4caf50;
-    background-color: #f1f8e9;
+    border-left-color: var(--success);
 }
 
 .status-message.error {
-    border-left-color: #f44336;
-    background-color: #ffebee;
+    border-left-color: var(--danger);
 }
 
 .status-message.info {
-    border-left-color: #2196f3;
-    background-color: #e3f2fd;
+    border-left-color: var(--primary);
 }
 
 @keyframes slideIn {
     from {
-        transform: translateX(100%);
+        transform: translateX(30px);
         opacity: 0;
     }
     to {
@@ -559,341 +725,57 @@ button {
     }
 }
 
-/* My Assignments Modal Styles */
-#myAssignmentsModal .modal-content {
-    max-width: 800px;
+/* ==========================================================================
+   Tabellen (Meine Aufsichten, Tauschbörse)
+   ========================================================================== */
+#myAssignmentsModal .modal-content,
+#offersModal .modal-content {
+    max-width: 820px;
 }
 
 .assignments-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
+    margin-top: 0.5rem;
+    font-size: 0.92rem;
 }
 
 .assignments-table th,
 .assignments-table td {
-    border: 1px solid #ddd;
-    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 0.75rem;
     text-align: left;
+    vertical-align: middle;
 }
 
 .assignments-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
+    background: var(--surface-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border-strong);
 }
 
-.assignments-table tr:nth-child(even) {
-    background-color: #f9f9f9;
+.assignments-table tr:hover td {
+    background: var(--surface-muted);
 }
 
-.assignments-table tr:hover {
-    background-color: #f5f5f5;
+.assignments-table td button {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .print-controls {
     text-align: right;
-    margin-bottom: 20px;
+    margin-bottom: 1rem;
 }
 
-@media print {
-    body {
-        font-size: 12px;
-    }
-    
-    .assignments-table th,
-    .assignments-table td {
-        padding: 8px;
-    }
-    
-    .print-controls {
-        display: none;
-    }
-    
-    #myAssignmentsModal {
-        display: block !important;
-        position: static !important;
-        background: white !important;
-    }
-    
-    #myAssignmentsModal .modal-content {
-        box-shadow: none !important;
-        max-width: 100% !important;
-    }
-}
-
-/* Template View Styles */
-.area-template-view {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin-bottom: 2rem;
-    overflow: hidden;
-}
-
-.area-template-view .area-header {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-left: 4px solid #1976d2;
-    margin-bottom: 0;
-}
-
-.area-template-view .area-header[data-location="Eckernförde"] {
-    border-left-color: #d32f2f;
-}
-
-.area-template-view .area-header h3 {
-    color: #1976d2;
-    font-size: 1.3rem;
-    margin: 0 0 0.5rem 0;
-}
-
-.area-template-view .area-header[data-location="Eckernförde"] h3 {
-    color: #d32f2f;
-}
-
-.template-note {
-    color: #666;
-    font-size: 0.9rem;
-    font-style: italic;
-    margin: 0;
-}
-
-.template-container {
-    padding: 1rem;
-}
-
-.template-grid {
-    display: grid;
-    grid-template-columns: 120px repeat(5, 1fr);
-    gap: 1px;
-    background-color: #ddd;
-    border: 1px solid #ddd;
-    margin-top: 10px;
-}
-
-.template-grid-header {
-    display: contents;
-}
-
-.day-column-header,
-.time-column-header {
-    background-color: #f8f9fa;
-    padding: 8px;
-    font-weight: bold;
-    text-align: center;
-    border: 1px solid #ddd;
-}
-
-.day-column-header {
-    font-size: 0.9em;
-}
-
-.day-short {
-    font-size: 0.8em;
-    color: #666;
-    font-weight: normal;
-}
-
-.template-time-row {
-    display: contents;
-}
-
-.time-cell-header {
-    background-color: #f8f9fa;
-    padding: 8px;
-    font-weight: bold;
-    text-align: center;
-    border: 1px solid #ddd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.time-name {
-    font-size: 0.9em;
-}
-
-.day-cell {
-    background-color: white;
-    padding: 4px;
-    border: 1px solid #ddd;
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.template-day-row {
-    display: contents;
-}
-
-.time-cell {
-    background-color: white;
-    padding: 4px;
-    border: 1px solid #ddd;
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.area-week-view .area-header {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-left: 4px solid #1976d2;
-    margin-bottom: 0;
-}
-
-.area-week-view .area-header[data-location="Eckernförde"] {
-    border-left-color: #d32f2f;
-}
-
-.area-week-view .area-header h3 {
-    color: #1976d2;
-    font-size: 1.3rem;
-    margin: 0;
-}
-
-.area-week-view .area-header[data-location="Eckernförde"] h3 {
-    color: #d32f2f;
-}
-
-.weeks-container {
-    padding: 1rem;
-}
-
-.week-section {
-    margin-bottom: 2rem;
-}
-
-.week-section:last-child {
-    margin-bottom: 0;
-}
-
-.week-header {
-    background: #f5f5f5;
-    padding: 0.75rem 1rem;
-    border-radius: 6px 6px 0 0;
-    border-bottom: 1px solid #ddd;
-}
-
-.week-header h4 {
-    color: #666;
-    font-size: 1rem;
-    margin: 0;
-}
-
-.week-grid {
-    border: 1px solid #ddd;
-    border-radius: 0 0 6px 6px;
-    overflow: hidden;
-}
-
-.week-grid-header {
-    display: grid;
-    grid-template-columns: 120px repeat(auto-fit, minmax(150px, 1fr));
-    background: #f8f9fa;
-    border-bottom: 2px solid #ddd;
-}
-
-.day-column-header,
-.time-column-header {
-    padding: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-    border-right: 1px solid #ddd;
-    color: #333;
-}
-
-.day-column-header {
-    background: #e9ecef;
-}
-
-.time-column-header:last-child {
-    border-right: none;
-}
-
-.week-day-row {
-    display: grid;
-    grid-template-columns: 120px repeat(auto-fit, minmax(150px, 1fr));
-    border-bottom: 1px solid #eee;
-}
-
-.week-day-row:last-child {
-    border-bottom: none;
-}
-
-.day-cell {
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-right: 1px solid #ddd;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
-
-.day-name {
-    font-weight: 600;
-    color: #333;
-    font-size: 0.9rem;
-}
-
-.day-date {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 0.25rem;
-}
-
-.time-cell {
-    padding: 0.5rem;
-    border-right: 1px solid #ddd;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    min-height: 60px;
-}
-
-.time-cell:last-child {
-    border-right: none;
-}
-
-.time-cell .supervision-slot {
-    margin: 0;
-    min-height: auto;
-    padding: 0.4rem;
-    font-size: 0.85rem;
-    border-radius: 4px;
-}
-
-/* Week Grid Container for Horizontal Scrolling */
-.week-grid-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: #ccc transparent;
-}
-
-.week-grid-container::-webkit-scrollbar {
-    height: 6px;
-}
-
-.week-grid-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.week-grid-container::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 3px;
-}
-
-.week-grid-container::-webkit-scrollbar-thumb:hover {
-    background: #999;
-}
-
-/* Mobile Day Carousel */
+/* ==========================================================================
+   Mobile Day Carousel
+   ========================================================================== */
 .mobile-day-carousel {
     display: none;
     position: relative;
@@ -903,61 +785,62 @@ button {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-bottom: 1px solid #ddd;
+    padding: 0.6rem 0.25rem;
 }
 
 .mobile-day-nav-btn {
-    background: #1976d2;
+    background: var(--primary);
     color: white;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     font-size: 1.2rem;
-    transition: background-color 0.2s;
+    padding: 0;
 }
 
 .mobile-day-nav-btn:hover {
-    background: #1565c0;
-}
-
-.mobile-day-nav-btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
+    background: var(--primary-dark);
 }
 
 .mobile-day-indicator {
-    font-weight: 600;
-    color: #333;
+    font-weight: 700;
+    color: var(--text);
     text-align: center;
     flex: 1;
 }
 
 .mobile-day-content {
-    padding: 1rem;
+    padding: 0.25rem 0 0;
 }
 
-/* Responsive Design */
-@media (max-width: 1200px) {
-    .week-grid-header,
-    .week-day-row {
-        grid-template-columns: 100px repeat(5, minmax(140px, 1fr));
-        min-width: 800px;
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 900px) {
+    main {
+        padding: 1.25rem;
     }
-    
-    .day-cell {
-        padding: 0.5rem;
+
+    .template-grid {
+        grid-template-columns: 90px repeat(5, 1fr);
+        gap: 3px;
     }
-    
-    .time-cell {
-        padding: 0.4rem;
-        min-height: 50px;
+
+    .supervision-slot {
+        font-size: 0.78rem;
+        padding: 0.35rem 0.3rem;
+        min-height: 36px;
+    }
+
+    .time-name,
+    .day-column-header,
+    .time-column-header {
+        font-size: 0.72rem;
     }
 }
 
@@ -965,146 +848,114 @@ button {
     header {
         padding: 1rem;
     }
-    
+
+    header h1 {
+        font-size: 1.15rem;
+        margin-bottom: 0.75rem;
+        text-align: center;
+    }
+
     .header-controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
-    .date-controls {
-        justify-content: center;
+
+    .location-tabs {
+        align-self: center;
     }
-    
+
     .user-controls {
         justify-content: center;
     }
-    
-    main {
-        padding: 1rem;
-    }
-    
-    /* Enable horizontal scrolling for tablets */
-    .week-grid-header,
-    .week-day-row {
-        grid-template-columns: 100px repeat(5, minmax(130px, 1fr));
-        min-width: 750px;
-    }
-    
-    .day-cell {
-        padding: 0.4rem;
-    }
-    
-    .day-name {
-        font-size: 0.85rem;
-    }
-    
-    .day-date {
-        font-size: 0.75rem;
-    }
-    
-    .time-cell {
-        padding: 0.3rem;
-        min-height: 45px;
-    }
-    
-    .time-cell .supervision-slot {
-        padding: 0.3rem;
-        font-size: 0.8rem;
-    }
-    
-    .time-slots {
-        grid-template-columns: 1fr;
-    }
-    
-    .modal-content {
-        width: 95%;
-        margin: 1rem;
-    }
-    
+
     .modal-actions {
         flex-direction: column;
     }
-    
+
     .modal-actions button {
         width: 100%;
     }
 }
 
 @media (max-width: 480px) {
-    .date-controls {
-        flex-direction: column;
-        align-items: stretch;
+    main {
+        padding: 0.75rem;
     }
-    
-    .date-controls input,
-    .date-controls button {
-        width: 100%;
-    }
-    
-    /* Hide regular week grid on mobile */
-    .area-week-view .week-grid,
+
+    /* Desktop-Raster ausblenden, Tages-Karussell zeigen */
     .area-template-view .template-grid {
         display: none;
     }
-    
-    /* Show mobile carousel */
+
     .mobile-day-carousel {
         display: block;
     }
-    
-    /* Single day view for mobile */
+
     .mobile-day-grid {
         display: grid;
-        grid-template-columns: 100px 1fr;
-        gap: 1px;
-        background-color: #ddd;
-        border: 1px solid #ddd;
+        grid-template-columns: 95px 1fr;
+        gap: 4px;
     }
-    
-    .mobile-day-grid .time-column-header {
-        background-color: #f8f9fa;
-        padding: 0.75rem 0.5rem;
-        font-weight: bold;
-        text-align: center;
-        border: 1px solid #ddd;
-        font-size: 0.8rem;
-    }
-    
+
+    /* Kopfzeile entfällt — der Tag steht bereits im Karussell-Indikator */
+    .mobile-day-grid .time-column-header,
     .mobile-day-grid .day-column-header {
-        background-color: #e9ecef;
-        padding: 0.75rem;
-        font-weight: 600;
-        text-align: center;
-        border: 1px solid #ddd;
-        font-size: 0.9rem;
+        display: none;
     }
-    
+
     .mobile-day-grid .time-cell {
-        background-color: #f8f9fa;
-        padding: 0.75rem 0.5rem;
-        border: 1px solid #ddd;
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.5rem 0.35rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.8rem;
-        font-weight: 500;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-align: center;
     }
-    
+
     .mobile-day-grid .day-cell {
-        background-color: white;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        min-height: 60px;
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
+        min-height: 52px;
     }
-    
+
     .mobile-day-grid .supervision-slot {
-        margin: 0;
-        min-height: auto;
-        padding: 0.4rem;
-        font-size: 0.8rem;
-        border-radius: 4px;
+        min-height: 40px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ==========================================================================
+   Druck (Modal "Meine Aufsichten")
+   ========================================================================== */
+@media print {
+    body {
+        font-size: 12px;
+        background: white;
+    }
+
+    .assignments-table th,
+    .assignments-table td {
+        padding: 6px 8px;
+    }
+
+    .print-controls {
+        display: none;
+    }
+
+    #myAssignmentsModal {
+        display: block !important;
+        position: static !important;
+        background: white !important;
+        backdrop-filter: none;
+        padding: 0;
+    }
+
+    #myAssignmentsModal .modal-content {
+        box-shadow: none !important;
+        max-width: 100% !important;
+        border-radius: 0;
     }
 }
