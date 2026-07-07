@@ -3,6 +3,9 @@ require('./config/env').loadEnvFile();
 
 const express = require('express');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
@@ -42,25 +45,52 @@ const ADMIN_USERS = (process.env.ADMIN_USERS || '')
 const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const USER_PASSWORD_HASH = process.env.USER_PASSWORD ? sha256(process.env.USER_PASSWORD) : null;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD ? sha256(process.env.ADMIN_PASSWORD) : null;
+// Zeitkonstanter Vergleich (beide Seiten sind SHA-256-Hex, also gleich lang)
+const hashEquals = (a, b) => Boolean(a) && Boolean(b) &&
+    crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 // Middleware
+// Security-Header; CSP bleibt aus, weil die Oberfläche Inline-Handler
+// (onclick) und Inline-Styles nutzt — bei einem späteren Frontend-Umbau
+// aktivieren
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+
+// Hinter Plesk/Reverse-Proxy nötig, damit Secure-Cookies funktionieren
+if (process.env.COOKIE_SECURE === 'true') {
+    app.set('trust proxy', 1);
+}
 
 // Session configuration
 if (!process.env.SESSION_SECRET) {
     console.warn('WARNUNG: SESSION_SECRET nicht gesetzt — Fallback-Secret wird verwendet (.env konfigurieren!)');
 }
-app.use(session({
+// Sessions in SQLite statt im Speicher: überleben Server-Neustarts und
+// wachsen nicht unbegrenzt im RAM
+const sessionMiddleware = session({
+    store: new SQLiteStore({ db: 'sessions.db', dir: path.join(__dirname, 'database') }),
     secret: process.env.SESSION_SECRET || 'pausenaufsicht-session-secret-2024',
     resave: false,
     saveUninitialized: false,
-    cookie: { 
-        secure: false, // Set to true in production with HTTPS
+    cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.COOKIE_SECURE === 'true', // hinter HTTPS aktivieren
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-}));
+});
+app.use(sessionMiddleware);
+
+// Login-Versuche begrenzen (Schutz gegen Passwort-Raten)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Zu viele Anmeldeversuche — bitte in 15 Minuten erneut versuchen' }
+});
 
 // Authentication middleware
 const requireAuth = (req, res, next) => {
@@ -113,7 +143,7 @@ const canModifyTeacherAssignment = (req, res, next) => {
 // Routes
 
 // Authentication
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
     try {
         if (AUTH_MODE === 'ldap') {
             // --- LDAP-Login: Benutzername + Passwort gegen das AD prüfen ---
@@ -167,7 +197,7 @@ app.post('/api/login', async (req, res) => {
             });
         }
 
-        if (password && sha256(password) === expectedHash) {
+        if (password && hashEquals(sha256(password), expectedHash)) {
             req.session.authenticated = true;
             req.session.isAdmin = isAdmin || false;
             // For standard users, teacher selection is required
@@ -505,17 +535,21 @@ app.delete('/api/assignments/:id', requireAuth, requireTeacherSelection, async (
 });
 
 
-// Socket.IO for real-time updates
+// Socket.IO for real-time updates — nur für angemeldete Nutzer, sonst
+// könnte jeder die Live-Events (inkl. Lehrernamen) mitlesen
+io.engine.use(sessionMiddleware);
+io.use((socket, next) => {
+    const session = socket.request.session;
+    if (session && session.authenticated) {
+        next();
+    } else {
+        next(new Error('Nicht angemeldet'));
+    }
+});
+
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-    
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-    });
-    
     socket.on('joinRoom', (room) => {
         socket.join(room);
-        console.log(`User ${socket.id} joined room ${room}`);
     });
 });
 

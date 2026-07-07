@@ -1,5 +1,15 @@
 // Main application logic
 class PausenaufsichtApp {
+    // HTML-Sonderzeichen maskieren, bevor Daten in innerHTML landen (XSS)
+    static escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
     constructor() {
         this.authenticated = false;
         this.isAdmin = false;
@@ -388,7 +398,7 @@ class PausenaufsichtApp {
     createSupervisionSlot(area, timeSlot, date, supervisionNumber, assignment) {
         const isEmpty = !assignment;
         const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
-        const content = isEmpty ? 'Leer' : assignment.teacher_name;
+        const content = isEmpty ? 'Leer' : PausenaufsichtApp.escapeHtml(assignment.teacher_name);
         
         const dataAttributes = [
             `data-area-id="${area.id}"`,
@@ -544,8 +554,8 @@ class PausenaufsichtApp {
             const teacherDiv = document.createElement('div');
             teacherDiv.className = 'teacher-result';
             teacherDiv.innerHTML = `
-                <div class="teacher-name">${teacher.name}</div>
-                <div class="teacher-full-name">${teacher.foreName} ${teacher.longName}</div>
+                <div class="teacher-name">${PausenaufsichtApp.escapeHtml(teacher.name)}</div>
+                <div class="teacher-full-name">${PausenaufsichtApp.escapeHtml(teacher.foreName)} ${PausenaufsichtApp.escapeHtml(teacher.longName)}</div>
             `;
             
             // Add click event listener
@@ -821,7 +831,7 @@ class PausenaufsichtApp {
         
         areaDiv.innerHTML = `
             <div class="area-header" data-location="${area.location}">
-                <h3>${area.name} (${area.supervision_count} Aufsicht${area.supervision_count > 1 ? 'en' : ''})</h3>
+                <h3>${PausenaufsichtApp.escapeHtml(area.name)} (${area.supervision_count} Aufsicht${area.supervision_count > 1 ? 'en' : ''})</h3>
                 <p class="template-note">Wochenvorlage - gilt für alle Wochen</p>
             </div>
             <div class="template-container">
@@ -1178,8 +1188,8 @@ class PausenaufsichtApp {
             const teacherDiv = document.createElement('div');
             teacherDiv.className = 'teacher-result';
             teacherDiv.innerHTML = `
-                <div class="teacher-name">${teacher.name}</div>
-                <div class="teacher-full-name">${teacher.foreName} ${teacher.longName}</div>
+                <div class="teacher-name">${PausenaufsichtApp.escapeHtml(teacher.name)}</div>
+                <div class="teacher-full-name">${PausenaufsichtApp.escapeHtml(teacher.foreName)} ${PausenaufsichtApp.escapeHtml(teacher.longName)}</div>
             `;
             
             // Add click event listener
@@ -1315,7 +1325,7 @@ class PausenaufsichtApp {
                 html += `
                     <tr>
                         <td>${dateStr}</td>
-                        <td>${area ? area.name : 'Unbekannt'}</td>
+                        <td>${PausenaufsichtApp.escapeHtml(area ? area.name : 'Unbekannt')}</td>
                         <td>${timeSlot ? timeSlot.display_name : 'Unbekannt'}</td>
                         <td>${assignment.supervision_number}. Aufsicht</td>
                     </tr>

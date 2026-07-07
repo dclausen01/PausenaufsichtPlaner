@@ -9,8 +9,11 @@
     "ldap-test": "node scripts/ldap-test.js"
   },
   "dependencies": {
+    "connect-sqlite3": "^0.9.16",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
     "express-session": "^1.18.2",
+    "helmet": "^8.2.0",
     "ldapts": "^7.4.0",
     "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7"

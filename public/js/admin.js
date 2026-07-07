@@ -1,5 +1,15 @@
 // Admin application logic
 class AdminApp {
+    // HTML-Sonderzeichen maskieren, bevor Daten in innerHTML landen (XSS)
+    static escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
     constructor() {
         this.authenticated = false;
         this.isAdmin = false;
@@ -397,7 +407,7 @@ class AdminApp {
     createSupervisionSlot(area, dayName, timeSlot, supervisionNumber, assignment) {
         const isEmpty = !assignment;
         const className = isEmpty ? 'supervision-slot empty' : 'supervision-slot filled';
-        const content = isEmpty ? 'Leer' : assignment.teacher_name;
+        const content = isEmpty ? 'Leer' : AdminApp.escapeHtml(assignment.teacher_name);
         
         const dataAttributes = [
             `data-area-id="${area.id}"`,
@@ -533,8 +543,8 @@ class AdminApp {
             const teacherDiv = document.createElement('div');
             teacherDiv.className = 'teacher-result';
             teacherDiv.innerHTML = `
-                <div class="teacher-name">${teacher.name}</div>
-                <div class="teacher-full-name">${teacher.foreName} ${teacher.longName}</div>
+                <div class="teacher-name">${AdminApp.escapeHtml(teacher.name)}</div>
+                <div class="teacher-full-name">${AdminApp.escapeHtml(teacher.foreName)} ${AdminApp.escapeHtml(teacher.longName)}</div>
             `;
             
             teacherDiv.addEventListener('click', (e) => {
