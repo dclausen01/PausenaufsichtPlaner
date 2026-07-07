@@ -164,6 +164,22 @@ class AdminApp {
                 this.toggleOffer();
             });
         }
+
+        // Druck-/PDF-Export der Wochenvorlage
+        document.getElementById('printScheduleBtn').addEventListener('click', () => {
+            this.printSchedule();
+        });
+    }
+
+    printSchedule() {
+        window.openSchedulePrint({
+            location: this.currentLocation,
+            periodName: this.currentPeriod ? this.currentPeriod.name : '',
+            areas: this.areas,
+            timeSlots: this.timeSlots,
+            assignments: this.templateAssignments,
+            isAvailable: (areaId, timeSlotId) => this.isAreaTimeSlotAvailable(areaId, timeSlotId)
+        });
     }
 
     async toggleOffer() {

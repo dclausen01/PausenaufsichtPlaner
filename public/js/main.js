@@ -183,6 +183,11 @@ class PausenaufsichtApp {
             this.showOffers();
         });
 
+        // Druck-/PDF-Export der Wochenvorlage
+        document.getElementById('printScheduleBtn').addEventListener('click', () => {
+            this.printSchedule();
+        });
+
         document.getElementById('closeOffersModal').addEventListener('click', () => {
             document.getElementById('offersModal').classList.add('hidden');
         });
@@ -1378,6 +1383,22 @@ class PausenaufsichtApp {
             actionCell.appendChild(button);
 
             tableBody.appendChild(row);
+        });
+    }
+
+    printSchedule() {
+        if (!this.currentSchedule) {
+            this.showStatusMessage('Die Wochenvorlage ist noch nicht geladen', 'error');
+            return;
+        }
+
+        window.openSchedulePrint({
+            location: this.currentLocation,
+            periodName: this.currentSchedule.period ? this.currentSchedule.period.name : '',
+            areas: this.currentSchedule.areas,
+            timeSlots: this.currentSchedule.timeSlots,
+            assignments: this.currentSchedule.assignments,
+            isAvailable: (areaId, timeSlotId) => this.isAreaTimeSlotAvailable(areaId, timeSlotId)
         });
     }
 
